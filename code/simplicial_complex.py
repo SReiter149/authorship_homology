@@ -1,6 +1,5 @@
 '''
-TODO: rename diomensino matrix to incidence matrix
-TODO: remanem dimension to be less ambiguous
+
 '''
 
 from itertools import combinations
@@ -11,8 +10,6 @@ import subprocess
 import logging
 import os
 import random
-
-
 
 class SimplicialComplex:
     '''
@@ -88,10 +85,9 @@ class SimplicialComplex:
                 - dimension matrices (if calculated)
                 - betti numbers (if calculated)
         '''
-        output = f'\n-------------------\n'
+        output = f'\n--------{self.name}-----------\n '
 
         # name
-        output += f'name: {self.name}\n'
 
         # max dimension
         output += f'max dimension: {self.max_dimension}\n'
@@ -154,21 +150,140 @@ class SimplicialComplex:
             f.write(str(self.betti_numbers))
             f.close()
 
-    def star(self, face):
-        star_list = set()
-        face = set(face)
-        for simplex in self.top_cell_complex:
-            if face.issubset(simplex):
-                star_list.add(simplex)
-        return star_list
+    def star(self, face, complex = None):
+        '''
+        finds all simplices in the complex for which the given face is a face in the complex
 
-    def link_condition(edge, star_v1, star_v2, star_edge):
+        arguments: 
+        - face (set): the face to check the star of 
+        - complex (set of simplicies) (optional): if the search space is smaller than the whole complex
+
+        returns:
+        - star_set (set of simplicies): implementation of the star operation from Fellegara 2020 Homology 
+        '''
+        star_set = set()
+
+        # Case 1: if the search space is the whole complex
+        if complex == None:
+            for simplex in self.top_cell_complex:
+                if face.issubset(simplex):
+                    star_set.add(simplex)
+
+        # Case 2: if the search space is the given complex
+        else:
+            for simplex in complex:
+                if face.issubset(simplex):
+                    star_set.add(simplex)
+        return star_set
+
+    def boundary_face(self, face, complex):
+        """
+        checks whether the given face is a face in the given complex
+
+        arguemtns:
+        - face (set)
+        - complex (simplicial complex): the simplicial complex to check
+
+        returns:
+        - bool: whether the face is a face in the complex or not
+        """
+        for simplex in complex:
+            # is there a proper subset function?
+            if face.issubset(simplex):
+                if len(face) < len(simplex):
+                    return True
+        return False
+
+    def link_condition(self, star_v1, star_v2, star_edge):
+        """
+        Fellegara 2020 Homology
+
+        checks the link condition, basically whether it is safe to remove the given edge or not
+
+        arguments:
+        - star_v1 (set of simplices): the set of simplices that v1 is in
+        - star_v2 (set of simplices): the set of simplices that v2 is in
+        - star_edge (set of simplices): the set of simplices that edge is in
+
+        returns:
+        - bool: whether the link condition is satisfied or not
+        """
         T1 = star_v1 - star_edge
         T2 = star_v2 - star_edge
-
         for t1 in T1:
             for t2 in T2:
-                pass
+                shared_face = t1.intersection(t2)
+                if bool(shared_face):
+                    if not self.boundary_face(shared_face, star_edge):
+                        return False
+        return True
+    
+    def contract(self, v1, v2, star_v1, star_v2, star_edge):
+        """
+        Fellegara 2020 Homology
+
+        Removes edge (v1,v2) from the simplicial complex
+        turns all instances of v1 into v2
+
+        arguments:
+        - v1 (1-set): the first vertex, the one to be removed
+        - v2 (1-set): the second vertex, the one to be combined into
+        - star_v1 (set of simplices): the star of v1
+        - star_v2 (set of simplices): the star of v2
+        - star_edge (set of simplicies): the star of the edge (v1,v2)
+
+        returns:
+        - None
+        
+        """
+        for top_simplex in star_edge:
+            gamma_1 = top_simplex - v1
+            gamma_2 = top_simplex - v2
+
+            star_gamma_1 = self.star(gamma_1, star_v2)
+            star_gamma_2 = self.star(gamma_2, star_v1)
+            # pdb.set_trace()
+            if star_gamma_1.union(star_gamma_2) == {top_simplex}:
+                self.top_cell_complex.add(gamma_1)
+            self.top_cell_complex.remove(top_simplex)
+
+
+        for top_simplex in star_v1 - star_edge:
+            self.top_cell_complex.remove(top_simplex)
+            self.top_cell_complex.add((top_simplex - v1).union(v2))
+
+    def reduce_top_cell_complex(self):
+        """
+        reduces the top cell complex using the above functions
+
+        very unoptimal
+
+        arguments:
+        - none
+
+        returns:
+        - none
+        
+        """
+
+        # creates edge set
+        edges = set()
+        for simplex in self.top_cell_complex:
+            for edge in combinations(simplex, 2):
+                edges.add(frozenset(edge))
+
+        for edge in edges:
+            v1, v2 = [{v} for v in edge]
+            star_v1 = self.star(v1)
+            star_v2 = self.star(v2)
+            star_edge = self.star(edge)
+
+            # check if edge is still in the complex 
+            # (if there is a way I don't need to generate all the edges so I don't need this check that is likely more optimal)
+            if bool(star_edge):
+                if self.link_condition(star_v1, star_v2, star_edge):
+                    self.contract(v1,v2,star_v1, star_v2, star_edge)
+
 
     def build_simplicial_complex(self):
         '''
@@ -214,22 +329,8 @@ class SimplicialComplex:
                 for vertex in sorted(list(simplex)):
                     subsimplex = simplex - {vertex}
                     indices.append(simplex_idx_dict[subsimplex])
-                # random.shuffle(indices)
                 incidence_matrix[indices, simplex_idx] = values
             incidence_matrices.append(incidence_matrix)
-
-            # for nsimplex in self.simplicial_complex[dimension + 1]:
-            #     # builds the column by checking if each small simplex is in the particular nsimplex
-            #     column = [0] * len(self.simplicial_complex[dimension])
-            #     value = -1
-            #     for drop_index in range(len(nsimplex)-1,-1,-1):
-            #         small_simplex = nsimplex[:drop_index] + nsimplex[drop_index+1:]
-            #         simplex_index = simplex_idx_dict[small_simplex]
-            #         column[simplex_index] = value
-            #         value *= -1
-            #     incidence_matrices[dimension].append(column)
-            # # formatting stuff
-            # incidence_matrices[dimension] = np.array(incidence_matrices[dimension]).T
         self.incidence_matrices = incidence_matrices
     
     def build_perseus_simplex(self):
@@ -254,12 +355,15 @@ class SimplicialComplex:
         dim_kers = []
         dim_ims = []
         for i, matrix in enumerate(self.incidence_matrices):
-            dim_ker, dim_im = calc_dim_ker_im(matrix)
-            try:
-                assert np.linalg.matrix_rank(matrix) == dim_im
-            except:
-                print("catching numpy and my linear algebra disagree")
-                pdb.set_trace()
+            if matrix.size != 0:
+                dim_ker, dim_im = calc_dim_ker_im(matrix)
+                try:
+                    assert np.linalg.matrix_rank(matrix) == dim_im
+                except:
+                    print("catching numpy and my linear algebra disagree")
+                    pdb.set_trace()
+            else:
+                dim_ker, dim_im = (0,0)
             dim_kers.append(dim_ker)
             dim_ims.append(dim_im)
             if self.verbose:
@@ -282,17 +386,34 @@ class SimplicialComplex:
         self.betti_numbers = betti_numbers
 
     def calculate_betti_sum(self):
+        """
+        combined with the euler characteristic calculation this can be a sanity check
+
+        arguments: 
+        - None
+
+        Returns:
+        - None
+        """
         betti_sum = 0
         for idx, betti_num in enumerate(self.betti_numbers):
             betti_sum += betti_num * ((-1) ** idx)
         self.betti_sum = betti_sum
 
     def calculate_euler_characteristic(self):
+        """
+        combined with the euler characteristic calculation this can be a sanity check
+        
+        arguments: 
+        - None
+
+        Returns:
+        - None
+        """
         euler_characteristic = 0
         for idx, k_skeleton in self.simplicial_complex.items():
                 euler_characteristic += len(k_skeleton) * (-1) ** idx
         self.euler_characteristic = euler_characteristic
-
 
     def calculate_all(self, save = False, verbose = None):
         '''
@@ -312,18 +433,18 @@ class SimplicialComplex:
         if save:
             self.save = save
 
+        self.reduce_top_cell_complex()
         self.build_simplicial_complex()
         if self.save:
             self.save_complex()
-        if self.verbose:
-            print("finished building complex")
-            print(repr(self))
+        # if self.verbose:
+        #     print("finished building complex")
+        #     print(repr(self))
 
         self.build_incidence_matrices()
         if self.save:
             self.save_incidence_matrices()
         if self.verbose:
-            print("finished building dimension matrices")
             print(repr(self))
 
         self.calculate_betti_numbers()
@@ -337,9 +458,7 @@ if __name__ == '__main__':
         complex = SimplicialComplex(top_cell_complex, data_location, name = name, *args, **kwargs)
         complex.calculate_all()
 
-
         assert complex.betti_numbers == answer
-
         
         complex.calculate_euler_characteristic()
         complex.calculate_betti_sum()
@@ -369,8 +488,10 @@ if __name__ == '__main__':
         print(f'perseus betti: {perseus_betti}')
         assert perseus_betti == complex.betti_numbers
 
-    # # my example
-    # # answer should be [1,3,0,0] 
+
+
+    # my example
+    # answer should be [1,3,0,0] 
     answer = [1,3,0,0,0]
     top_cell_complex = [[1,2,3,4],[4,5,6,7],[2,5,7],[1,5],[7,8],[8,9],[9,10],[8,9,10],[7,8,9,10],[1,3,5,7],[2,4,6,8],[10,11,12,13,14]] 
     test(top_cell_complex, answer, name = 'test1', verbose = True , save = True)
@@ -385,7 +506,7 @@ if __name__ == '__main__':
     # answer should be [1,2,0]
     answer = [1,2,0]
     top_cell_complex = [[1,2],[2,3,7],[3,4],[4,5],[5,6],[6,3],[7,8],[8,1]] 
-    test(top_cell_complex, answer, name = 'test3', save = True)
+    test(top_cell_complex, answer, name = 'test3', verbose = True, save = True)
 
     # three triangles that have a 2 dimensional hole in the middle
     # answer should be [1,1,0]
