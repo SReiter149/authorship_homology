@@ -14,7 +14,7 @@ def pipeline(query_url, name, data_location):
     if os.path.isfile(input_file) == False or os.stat(input_file).st_size == 0:
         results = query(f'https://api.openalex.org/works?filter={query_url}')
         paper_dict = format_papers(results)
-        paper_dict = {key: paper_dict[key] for key in paper_dict.keys() if len(paper_dict[key]) > 1}
+        paper_dict = {key: set(paper_dict[key]) for key in paper_dict.keys() if len(paper_dict[key]) > 1}
         with open(input_file, 'w') as f:
             json.dump(paper_dict, f)
 

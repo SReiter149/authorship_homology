@@ -10,6 +10,7 @@ from linear_algebra import *
 import subprocess
 import logging
 import os
+import random
 
 
 
@@ -76,7 +77,6 @@ class SimplicialComplex:
         output = f"Simplicial Complex of dimension {self.max_dimension}"
         return output
 
-
     def __repr__(self):
         '''
         returns:
@@ -100,7 +100,7 @@ class SimplicialComplex:
         # output += f'top cell complex: {self.top_cell_complex}\n'
 
         try:
-            for idx, k_skeleton in enumerate(self.simplicial_complex):
+            for idx, k_skeleton in self.simplicial_complex.items():
                 output += f'in the {idx}-skeleton, there are {len(k_skeleton)} elements \n'
         except:
             pass
@@ -162,7 +162,6 @@ class SimplicialComplex:
                 star_list.add(simplex)
         return star_list
 
-
     def link_condition(edge, star_v1, star_v2, star_edge):
         T1 = star_v1 - star_edge
         T2 = star_v2 - star_edge
@@ -190,7 +189,6 @@ class SimplicialComplex:
 
         self.simplicial_complex = simplicial_complex
 
-
     def build_incidence_matrices(self):
         '''
         builds dimension matrices from the simplicial complex
@@ -209,15 +207,15 @@ class SimplicialComplex:
                 print(f'now on dimension {dimension} of {len(incidence_matrices)}')
             simplex_idx_dict = {simplex: idx for idx, simplex in enumerate(self.simplicial_complex[dimension])}
             incidence_matrix = np.zeros((len(self.simplicial_complex[dimension]), len(self.simplicial_complex[dimension+1])), dtype = int)
+            values = [(-1) ** (i+1) for i in range(dimension + 2)]
+
             for simplex_idx, simplex in enumerate(self.simplicial_complex[dimension + 1]):
                 indices = []
-                for vertex in simplex:
+                for vertex in sorted(list(simplex)):
                     subsimplex = simplex - {vertex}
                     indices.append(simplex_idx_dict[subsimplex])
-                (indices).sort()
-                values = [(-1) ** i for i in range(len(indices))]
+                # random.shuffle(indices)
                 incidence_matrix[indices, simplex_idx] = values
-                print(indices, values, simplex)
             incidence_matrices.append(incidence_matrix)
 
             # for nsimplex in self.simplicial_complex[dimension + 1]:
@@ -232,7 +230,6 @@ class SimplicialComplex:
             #     incidence_matrices[dimension].append(column)
             # # formatting stuff
             # incidence_matrices[dimension] = np.array(incidence_matrices[dimension]).T
-        print(incidence_matrices)
         self.incidence_matrices = incidence_matrices
     
     def build_perseus_simplex(self):
@@ -372,8 +369,8 @@ if __name__ == '__main__':
         print(f'perseus betti: {perseus_betti}')
         assert perseus_betti == complex.betti_numbers
 
-    # my example
-    # answer should be [1,3,0,0] 
+    # # my example
+    # # answer should be [1,3,0,0] 
     answer = [1,3,0,0,0]
     top_cell_complex = [[1,2,3,4],[4,5,6,7],[2,5,7],[1,5],[7,8],[8,9],[9,10],[8,9,10],[7,8,9,10],[1,3,5,7],[2,4,6,8],[10,11,12,13,14]] 
     test(top_cell_complex, answer, name = 'test1', verbose = True , save = True)
@@ -384,25 +381,25 @@ if __name__ == '__main__':
     top_cell_complex = [[1,2,5],[2,3],[3,4],[4,5]] 
     test(top_cell_complex, answer, name = 'test2' , verbose = True, save = True)
 
-    # # Chad exercise 7
-    # # answer should be [1,2,0]
-    # answer = [1,2,0]
-    # top_cell_complex = [[1,2],[2,3,7],[3,4],[4,5],[5,6],[6,3],[7,8],[8,1]] 
-    # test(top_cell_complex, answer, name = 'test3', save = True)
+    # Chad exercise 7
+    # answer should be [1,2,0]
+    answer = [1,2,0]
+    top_cell_complex = [[1,2],[2,3,7],[3,4],[4,5],[5,6],[6,3],[7,8],[8,1]] 
+    test(top_cell_complex, answer, name = 'test3', save = True)
 
-    # # three triangles that have a 2 dimensional hole in the middle
-    # # answer should be [1,1,0]
-    # answer = [1,1,0]
-    # top_cell_complex = [[1,2,3],[2,4,5],[3,5,6]] 
-    # test(top_cell_complex, answer, name = 'test4', save = True)
+    # three triangles that have a 2 dimensional hole in the middle
+    # answer should be [1,1,0]
+    answer = [1,1,0]
+    top_cell_complex = [[1,2,3],[2,4,5],[3,5,6]] 
+    test(top_cell_complex, answer, name = 'test4', save = True)
 
-    # # three open triangles with a triangle in the middle
-    # # answer should be [1,4]
-    # answer = [1,4]
-    # top_cell_complex = [[1,2],[1,3],[2,3],[2,4],[2,5],[4,5],[3,5],[3,6],[5,6]] 
-    # test(top_cell_complex, answer, name = 'test5', verbose = False, save = True)
+    # three open triangles with a triangle in the middle
+    # answer should be [1,4]
+    answer = [1,4]
+    top_cell_complex = [[1,2],[1,3],[2,3],[2,4],[2,5],[4,5],[3,5],[3,6],[5,6]] 
+    test(top_cell_complex, answer, name = 'test5', verbose = False, save = True)
 
-    # # the small sloths test
-    # answer = [81,0,0,0,0,0]
-    # top_cell_complex = [[1, 2], [3, 4], [5, 6, 7, 8], [9, 10, 11, 12, 13], [14, 15, 16], [17, 18], [19, 20], [21, 22, 23, 24], [25, 26, 27, 17, 18], [21, 22, 23, 24], [14, 16], [28, 29, 30], [31, 32], [33, 18, 34, 35], [36, 37], [38, 39], [21, 23, 40, 41, 24], [18, 42, 43], [44, 45, 46, 47, 48, 49], [50, 51, 52, 53, 54], [55, 56, 57, 58], [59, 60, 61], [62, 63, 64, 65], [66, 67, 68, 69], [70, 71], [72, 73], [74, 75, 23], [76, 77, 78, 79], [80, 81, 82, 83, 84], [85, 86, 87, 88, 89], [90, 91], [92, 93, 94], [95, 96, 97], [98, 99, 100, 101], [102, 103, 104, 105, 106], [39, 38], [107, 18], [108, 109], [110, 111, 112], [113, 114, 115, 116, 117], [118, 119, 120], [121, 122], [123, 124, 80], [125, 126, 127, 128], [129, 130], [131, 132, 133, 134], [135, 136, 137, 138], [139, 140, 141, 142, 143, 144], [145, 146, 147, 148, 149, 150], [151, 152, 153], [154, 155, 156], [157, 158, 159, 160, 161, 162], [163, 164], [165, 166], [167, 168, 169, 170, 171], [81, 172, 173, 174, 80], [175, 176, 177, 178], [179, 18, 180], [181, 182, 183, 18], [184, 185, 186, 187], [188, 189, 190, 191, 192], [193, 194, 195, 196], [197, 17], [198, 18, 199], [200, 201], [202, 185, 186, 187], [203, 204, 205, 132], [206, 207, 208, 95], [209, 210], [211, 186, 185, 187], [212, 213, 214, 215, 216, 217], [218, 18], [219, 220, 221], [222, 223, 224, 225], [226, 227, 228, 229], [230, 231], [232, 233, 234], [235, 236], [237, 238, 239], [240, 241], [200, 201], [242, 243], [244, 245], [246, 247, 248], [249, 250, 251, 252], [106, 102, 253, 254], [255, 44, 46, 256, 257, 49], [258, 259], [18, 260], [261, 18], [107, 18], [262, 263], [264, 265, 266], [267, 268, 269, 270], [72, 73], [264, 265, 266], [271, 272, 273, 274], [275, 276, 277], [264, 278, 279], [280, 281], [282, 283, 284, 285, 286, 287], [288, 289, 290, 291], [292, 293], [294, 295, 296], [34, 297], [298, 299, 300], [301, 302, 250, 303, 252, 251], [304, 305, 306, 307], [308, 309], [310, 311, 312], [313, 314], [315, 316], [33, 297, 34, 18], [297, 33, 18, 34]]
-    # test(top_cell_complex, answer, name = 'small_sloth', verbose = True, save = True)
+    # the small sloths test
+    answer = [81,0,0,0,0,0]
+    top_cell_complex = [[1, 2], [3, 4], [5, 6, 7, 8], [9, 10, 11, 12, 13], [14, 15, 16], [17, 18], [19, 20], [21, 22, 23, 24], [25, 26, 27, 17, 18], [21, 22, 23, 24], [14, 16], [28, 29, 30], [31, 32], [33, 18, 34, 35], [36, 37], [38, 39], [21, 23, 40, 41, 24], [18, 42, 43], [44, 45, 46, 47, 48, 49], [50, 51, 52, 53, 54], [55, 56, 57, 58], [59, 60, 61], [62, 63, 64, 65], [66, 67, 68, 69], [70, 71], [72, 73], [74, 75, 23], [76, 77, 78, 79], [80, 81, 82, 83, 84], [85, 86, 87, 88, 89], [90, 91], [92, 93, 94], [95, 96, 97], [98, 99, 100, 101], [102, 103, 104, 105, 106], [39, 38], [107, 18], [108, 109], [110, 111, 112], [113, 114, 115, 116, 117], [118, 119, 120], [121, 122], [123, 124, 80], [125, 126, 127, 128], [129, 130], [131, 132, 133, 134], [135, 136, 137, 138], [139, 140, 141, 142, 143, 144], [145, 146, 147, 148, 149, 150], [151, 152, 153], [154, 155, 156], [157, 158, 159, 160, 161, 162], [163, 164], [165, 166], [167, 168, 169, 170, 171], [81, 172, 173, 174, 80], [175, 176, 177, 178], [179, 18, 180], [181, 182, 183, 18], [184, 185, 186, 187], [188, 189, 190, 191, 192], [193, 194, 195, 196], [197, 17], [198, 18, 199], [200, 201], [202, 185, 186, 187], [203, 204, 205, 132], [206, 207, 208, 95], [209, 210], [211, 186, 185, 187], [212, 213, 214, 215, 216, 217], [218, 18], [219, 220, 221], [222, 223, 224, 225], [226, 227, 228, 229], [230, 231], [232, 233, 234], [235, 236], [237, 238, 239], [240, 241], [200, 201], [242, 243], [244, 245], [246, 247, 248], [249, 250, 251, 252], [106, 102, 253, 254], [255, 44, 46, 256, 257, 49], [258, 259], [18, 260], [261, 18], [107, 18], [262, 263], [264, 265, 266], [267, 268, 269, 270], [72, 73], [264, 265, 266], [271, 272, 273, 274], [275, 276, 277], [264, 278, 279], [280, 281], [282, 283, 284, 285, 286, 287], [288, 289, 290, 291], [292, 293], [294, 295, 296], [34, 297], [298, 299, 300], [301, 302, 250, 303, 252, 251], [304, 305, 306, 307], [308, 309], [310, 311, 312], [313, 314], [315, 316], [33, 297, 34, 18], [297, 33, 18, 34]]
+    test(top_cell_complex, answer, name = 'small_sloth', verbose = True, save = True)

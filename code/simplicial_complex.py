@@ -10,6 +10,7 @@ from linear_algebra import *
 import subprocess
 import logging
 import os
+import random
 
 
 
@@ -19,26 +20,62 @@ class SimplicialComplex:
     has all methods for 
     - constructing simplicial complexes 
     - calculating betti numbers
+
+    
+    - data_location (relative location of data)
+    - name (string)
+    - verbose (bool)
+    - save (bool)
+    - simplex (a set of vertices)
+    - top_cell_complex (a set of simplicies)
+    - maximum dimension (integer)
     '''
-    def __init__(self, complex_data, data_location = '../data', name = 'simplicial_complex', verbose = False, save = False):
-        self.verbose = verbose
-        self.name = name
+    def __init__(self, top_cell_complex, data_location = '../data', name = 'simplicial_complex', verbose = False, save = False):
         self.data_location = data_location
+        self.name = name
+        self.verbose = verbose
         self.save = save
-        if isinstance(complex_data, list):
-            self.top_cell_complex = complex_data
-        elif isinstance(complex_data, dict):
-            self.top_cell_complex = []
-            for key in complex_data.keys():
-                assert isinstance(complex_data[key], list)
-                self.top_cell_complex.append(complex_data[key])
+
+        # parses top_cell_complex
+        if isinstance(top_cell_complex, list):
+            if isinstance(top_cell_complex[0], list):
+                self.top_cell_complex = set()
+                for simplex in top_cell_complex:
+                    self.top_cell_complex.add(frozenset(simplex))
+
+            # #Untested 
+            # elif isinstance(top_cell_complex[0], set):
+            #     self.top_cell_complex = set(top_cell_complex)
+            # elif isinstance(top_cell_complex[0], dict):
+            #     self.top_cell_complex = set()
+            #     for simplex in top_cell_complex:
+            #         for key in simplex.keys():
+            #             self.top_cell_complex.add(set(simplex[key]))
+
+        elif isinstance(top_cell_complex, dict):
+            self.top_cell_complex = set()
+            for key in top_cell_complex.keys():
+                if isinstance(top_cell_complex[key], list):
+                    self.top_cell_complex.add(set(top_cell_complex[key]))
+                elif isinstance(top_cell_complex[key], set):
+                    self.top_cell_complex.add(top_cell_complex[key])
+
+        # converts the elements to little integers
+        vertex_dict = dict()
+        clean_top_cell_complex = set()
+        for complex in self.top_cell_complex:
+            for vertex in complex:
+                if vertex not in vertex_dict.keys():
+                    vertex_dict[vertex] = len(vertex_dict.keys()) + 1
+            clean_top_cell_complex.add(frozenset({vertex_dict[vertex] for vertex in complex}))
+
+        self.top_cell_complex = clean_top_cell_complex
 
         self.max_dimension = max([len(simplex) for simplex in self.top_cell_complex])
 
     def __str__(self):
         output = f"Simplicial Complex of dimension {self.max_dimension}"
         return output
-
 
     def __repr__(self):
         '''
@@ -63,7 +100,7 @@ class SimplicialComplex:
         # output += f'top cell complex: {self.top_cell_complex}\n'
 
         try:
-            for idx, k_skeleton in enumerate(self.simplicial_complex):
+            for idx, k_skeleton in self.simplicial_complex.items():
                 output += f'in the {idx}-skeleton, there are {len(k_skeleton)} elements \n'
         except:
             pass
@@ -125,7 +162,6 @@ class SimplicialComplex:
                 star_list.add(simplex)
         return star_list
 
-
     def link_condition(edge, star_v1, star_v2, star_edge):
         T1 = star_v1 - star_edge
         T2 = star_v2 - star_edge
@@ -142,28 +178,16 @@ class SimplicialComplex:
         each dimension is sorted lexigraphically 
         '''
 
-        vertex_dict = dict()
-        for idx, complex in enumerate(self.top_cell_complex):
-            for vertex in complex:
-                if vertex not in vertex_dict.keys():
-                    vertex_dict[vertex] = len(vertex_dict.keys()) + 1
-            
-            self.top_cell_complex[idx] = [vertex_dict[vertex] for vertex in complex]
 
-        simplicial_complex = [[] for i in range(self.max_dimension)]
+        simplicial_complex = {i: set() for i in range(self.max_dimension)}
+
         # builds all subsimplices from the top cell complexes
         for simplex in self.top_cell_complex:
-            for l in range(len(simplex)):
-                for subsimplex in combinations(simplex,l + 1):
-                    simplicial_complex[l].append(tuple(sorted(subsimplex))) # GRRRRRRRRRRRRRRRRRRRRRRRRRRRRR
+            for skeleton_dimension in range(len(simplex)):
+                for subsimplex in combinations(simplex,skeleton_dimension + 1):
+                    simplicial_complex[skeleton_dimension].add(frozenset(subsimplex)) # GRRRRRRRRRRRRRRRRRRRRRRRRRRRRR
 
-        # sorts the simplicial complex for human readability
-        for l in range(len(simplicial_complex)):
-            n_skeleton = simplicial_complex[l]
-            n_skeleton = sorted(list(set(n_skeleton)))
-            simplicial_complex[l] = n_skeleton
         self.simplicial_complex = simplicial_complex
-
 
     def build_incidence_matrices(self):
         '''
@@ -176,25 +200,36 @@ class SimplicialComplex:
         there will be one fewer matrix than the max dimension in the simplicial complex
         '''
 
-        incidence_matrices = [[] for i in range(self.max_dimension -1)]
+        incidence_matrices = []
        
-        for dimension in range(0, len(incidence_matrices)):
+        for dimension in range(0, self.max_dimension - 1):
             if self.verbose:
                 print(f'now on dimension {dimension} of {len(incidence_matrices)}')
             simplex_idx_dict = {simplex: idx for idx, simplex in enumerate(self.simplicial_complex[dimension])}
-            for nsimplex in self.simplicial_complex[dimension + 1]:
-                # builds the column by checking if each small simplex is in the particular nsimplex
-                column = [0] * len(self.simplicial_complex[dimension])
-                value = -1
-                for drop_index in range(len(nsimplex)-1,-1,-1):
-                    small_simplex = nsimplex[:drop_index] + nsimplex[drop_index+1:]
-                    simplex_index = simplex_idx_dict[small_simplex]
-                    column[simplex_index] = value
-                    value *= -1
-                incidence_matrices[dimension].append(column)
-            # formatting stuff
-            incidence_matrices[dimension] = np.array(incidence_matrices[dimension]).T
+            incidence_matrix = np.zeros((len(self.simplicial_complex[dimension]), len(self.simplicial_complex[dimension+1])), dtype = int)
+            values = [(-1) ** (i+1) for i in range(dimension + 2)]
 
+            for simplex_idx, simplex in enumerate(self.simplicial_complex[dimension + 1]):
+                indices = []
+                for vertex in sorted(list(simplex)):
+                    subsimplex = simplex - {vertex}
+                    indices.append(simplex_idx_dict[subsimplex])
+                # random.shuffle(indices)
+                incidence_matrix[indices, simplex_idx] = values
+            incidence_matrices.append(incidence_matrix)
+
+            # for nsimplex in self.simplicial_complex[dimension + 1]:
+            #     # builds the column by checking if each small simplex is in the particular nsimplex
+            #     column = [0] * len(self.simplicial_complex[dimension])
+            #     value = -1
+            #     for drop_index in range(len(nsimplex)-1,-1,-1):
+            #         small_simplex = nsimplex[:drop_index] + nsimplex[drop_index+1:]
+            #         simplex_index = simplex_idx_dict[small_simplex]
+            #         column[simplex_index] = value
+            #         value *= -1
+            #     incidence_matrices[dimension].append(column)
+            # # formatting stuff
+            # incidence_matrices[dimension] = np.array(incidence_matrices[dimension]).T
         self.incidence_matrices = incidence_matrices
     
     def build_perseus_simplex(self):
@@ -254,7 +289,7 @@ class SimplicialComplex:
 
     def calculate_euler_characteristic(self):
         euler_characteristic = 0
-        for idx, k_skeleton in enumerate(self.simplicial_complex):
+        for idx, k_skeleton in self.simplicial_complex.items():
                 euler_characteristic += len(k_skeleton) * (-1) ** idx
         self.euler_characteristic = euler_characteristic
 
@@ -312,30 +347,30 @@ if __name__ == '__main__':
         assert complex.betti_sum == complex.euler_characteristic
 
         # compare with perseus
-        # complex.build_perseus_simplex()
-        # subprocess.run(["arch", "-x86_64", "./perseus",
-        #     "nmfsimtop",
-        #     f"{data_location}/{name}_perseus.txt",
-        #     f"{data_location}/{name}_perseus"
-        #     ],
-        #     stdout=subprocess.DEVNULL,
-        #     stderr=subprocess.DEVNULL,
-        #     check= True
-        #     )
+        complex.build_perseus_simplex()
+        subprocess.run(["arch", "-x86_64", "./perseus",
+            "nmfsimtop",
+            f"{data_location}/{name}_perseus.txt",
+            f"{data_location}/{name}_perseus"
+            ],
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL,
+            check= True
+            )
         
-        # with open(f"{data_location}/{name}_perseus_betti.txt", 'r') as f:
-        #     for line in f:
-        #         perseus_betti = line
-        #     perseus_betti = perseus_betti.split(" ")[2:-1]
-        #     perseus_betti = [int(x) for x in perseus_betti]
+        with open(f"{data_location}/{name}_perseus_betti.txt", 'r') as f:
+            for line in f:
+                perseus_betti = line
+            perseus_betti = perseus_betti.split(" ")[2:-1]
+            perseus_betti = [int(x) for x in perseus_betti]
         
-        # while len(perseus_betti) < len(answer):
-        #     perseus_betti.append(0)
-        # print(f'perseus betti: {perseus_betti}')
-        # assert perseus_betti == complex.betti_numbers
+        while len(perseus_betti) < len(answer):
+            perseus_betti.append(0)
+        print(f'perseus betti: {perseus_betti}')
+        assert perseus_betti == complex.betti_numbers
 
-    # my example
-    # answer should be [1,2,0,0] 
+    # # my example
+    # # answer should be [1,3,0,0] 
     answer = [1,3,0,0,0]
     top_cell_complex = [[1,2,3,4],[4,5,6,7],[2,5,7],[1,5],[7,8],[8,9],[9,10],[8,9,10],[7,8,9,10],[1,3,5,7],[2,4,6,8],[10,11,12,13,14]] 
     test(top_cell_complex, answer, name = 'test1', verbose = True , save = True)
@@ -344,7 +379,7 @@ if __name__ == '__main__':
     # answer should be [1,1,0]
     answer = [1,1,0]
     top_cell_complex = [[1,2,5],[2,3],[3,4],[4,5]] 
-    test(top_cell_complex, answer, name = 'test2' , save = True)
+    test(top_cell_complex, answer, name = 'test2' , verbose = True, save = True)
 
     # Chad exercise 7
     # answer should be [1,2,0]
