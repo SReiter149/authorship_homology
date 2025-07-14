@@ -5,32 +5,46 @@ import time
 def query(query_url):
     cursor = '*'
     results = []
+    page = 1
     while cursor:
         paged_url = f'{query_url}&per-page=200&cursor={cursor}'
         r = requests.get(url = paged_url)
         data = r.json()
         results.extend(data['results'])
         cursor = data['meta']['next_cursor']
-        time.sleep(0.2)
-    return results
+        time.sleep(0.1)
+        if page == 1:
+            total_pages = 2 + data['meta']['count']//200
+        print(f'on page {page} of {total_pages}')
+        if page % 5 == 0:
+
+            yield results
+            results = []     
+        page += 1
+    yield results
 
 def format_papers(results):
     paper_dict = {}
     for paper in results:
         author_ids = []
+        # pdb.set_trace()
         for author in paper['authorships']:
             author_ids.append(author['author']['id'].split("/")[-1])
-        paper_dict[paper['display_name']] = author_ids
+        if paper['display_name']:
+            paper_name = paper['display_name']
+        else:
+            paper_name = "unknown"
+        paper_dict[paper_name] = author_ids
     return paper_dict
 
 
 
 if __name__ == '__main__':
-    results = query('https://api.openalex.org/works?filter=default.search:two%252520toed%252520sloth%7CCholoepus')
-    paper_dict = format_papers(results)
-    with open('sloths.json', 'w') as f:
-        json.dump(paper_dict, f)
-    # pdb.set_trace()
+
+    output = query('https://api.openalex.org/works?filter=authorships.author.id:a5043805916,authorships.author.id:a5051868975')
+    # results = query('https://api.openalex.org/works?filter=default.search:two%252520toed%252520sloth%7CCholoepus')
+    for results in output:
+        paper_dict = format_papers(results)
 
 
 # Old code: 

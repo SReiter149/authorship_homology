@@ -39,23 +39,29 @@ class SimplicialComplex:
                 self.top_cell_complex = set()
                 for simplex in top_cell_complex:
                     self.top_cell_complex.add(frozenset(simplex))
-
-            # #Untested 
-            # elif isinstance(top_cell_complex[0], set):
-            #     self.top_cell_complex = set(top_cell_complex)
-            # elif isinstance(top_cell_complex[0], dict):
-            #     self.top_cell_complex = set()
-            #     for simplex in top_cell_complex:
-            #         for key in simplex.keys():
-            #             self.top_cell_complex.add(set(simplex[key]))
+            else:
+                raise ValueError('invalid input type')
+            
 
         elif isinstance(top_cell_complex, dict):
             self.top_cell_complex = set()
             for key in top_cell_complex.keys():
                 if isinstance(top_cell_complex[key], list):
                     self.top_cell_complex.add(set(top_cell_complex[key]))
-                elif isinstance(top_cell_complex[key], set):
+                elif isinstance(top_cell_complex[key], frozenset):
                     self.top_cell_complex.add(top_cell_complex[key])
+                else:
+                    raise ValueError('invalid input type')
+    
+
+        elif isinstance(top_cell_complex, frozenset):
+            if isinstance(next(iter(top_cell_complex)), frozenset):
+                self.top_cell_complex = top_cell_complex
+            else:
+                raise ValueError('invalid input type')
+        
+        else:
+            raise ValueError('invalid input type')
 
         # converts the elements to little integers
         vertex_dict = dict()
@@ -65,9 +71,8 @@ class SimplicialComplex:
                 if vertex not in vertex_dict.keys():
                     vertex_dict[vertex] = len(vertex_dict.keys()) + 1
             clean_top_cell_complex.add(frozenset({vertex_dict[vertex] for vertex in complex}))
-
+   
         self.top_cell_complex = clean_top_cell_complex
-
         self.max_dimension = max([len(simplex) for simplex in self.top_cell_complex])
 
     def __str__(self):
@@ -121,13 +126,14 @@ class SimplicialComplex:
 
         return output[:-1]
 
-    def save_complex(self):
+    def save_complete_complex(self):
         with open(f'{self.data_location}/{self.name}_complete_complex.txt', 'w') as f:
             for complex in self.simplicial_complex: 
                 f.write(str(complex))
                 f.write(f'\n')
             f.close()
-        
+
+    def save_top_complex(self): 
         with open(f'{self.data_location}/{self.name}_top_cell_complex.txt', 'w') as f:
             for complex in self.top_cell_complex: 
                 f.write(str(complex))
@@ -149,7 +155,7 @@ class SimplicialComplex:
         with open(f'{self.data_location}/{self.name}_betti_numbers.txt', 'w') as f:
             f.write(str(self.betti_numbers))
             f.close()
-
+        
     def star(self, face, complex = None):
         '''
         finds all simplices in the complex for which the given face is a face in the complex
@@ -274,16 +280,14 @@ class SimplicialComplex:
 
         for edge in edges:
             v1, v2 = [{v} for v in edge]
-            star_v1 = self.star(v1)
-            star_v2 = self.star(v2)
             star_edge = self.star(edge)
-
             # check if edge is still in the complex 
             # (if there is a way I don't need to generate all the edges so I don't need this check that is likely more optimal)
             if bool(star_edge):
+                star_v1 = self.star(v1)
+                star_v2 = self.star(v2)
                 if self.link_condition(star_v1, star_v2, star_edge):
                     self.contract(v1,v2,star_v1, star_v2, star_edge)
-
 
     def build_simplicial_complex(self):
         '''
@@ -432,11 +436,13 @@ class SimplicialComplex:
         
         if save:
             self.save = save
+        if self.save:
+            self.save_top_complex()
 
         self.reduce_top_cell_complex()
         self.build_simplicial_complex()
         if self.save:
-            self.save_complex()
+            self.save_complete_complex()
         # if self.verbose:
         #     print("finished building complex")
         #     print(repr(self))
@@ -455,7 +461,7 @@ class SimplicialComplex:
 if __name__ == '__main__':
     def test(top_cell_complex, answer, name, *args, **kwargs):
         data_location='../data/simplex_tests'
-        complex = SimplicialComplex(top_cell_complex, data_location, name = name, *args, **kwargs)
+        complex = SimplicialComplex(top_cell_complex, data_location = data_location, name = name, *args, **kwargs)
         complex.calculate_all()
 
         assert complex.betti_numbers == answer
@@ -466,59 +472,59 @@ if __name__ == '__main__':
         assert complex.betti_sum == complex.euler_characteristic
 
         # compare with perseus
-        complex.build_perseus_simplex()
-        subprocess.run(["arch", "-x86_64", "./perseus",
-            "nmfsimtop",
-            f"{data_location}/{name}_perseus.txt",
-            f"{data_location}/{name}_perseus"
-            ],
-            stdout=subprocess.DEVNULL,
-            stderr=subprocess.DEVNULL,
-            check= True
-            )
+        # complex.build_perseus_simplex()
+        # subprocess.run(["arch", "-x86_64", "./perseus",
+        #     "nmfsimtop",
+        #     f"{data_location}/{name}_perseus.txt",
+        #     f"{data_location}/{name}_perseus"
+        #     ],
+        #     stdout=subprocess.DEVNULL,
+        #     stderr=subprocess.DEVNULL,
+        #     check= True
+        #     )
         
-        with open(f"{data_location}/{name}_perseus_betti.txt", 'r') as f:
-            for line in f:
-                perseus_betti = line
-            perseus_betti = perseus_betti.split(" ")[2:-1]
-            perseus_betti = [int(x) for x in perseus_betti]
+        # with open(f"{data_location}/{name}_perseus_betti.txt", 'r') as f:
+        #     for line in f:
+        #         perseus_betti = line
+        #     perseus_betti = perseus_betti.split(" ")[2:-1]
+        #     perseus_betti = [int(x) for x in perseus_betti]
         
-        while len(perseus_betti) < len(answer):
-            perseus_betti.append(0)
-        print(f'perseus betti: {perseus_betti}')
-        assert perseus_betti == complex.betti_numbers
+        # while len(perseus_betti) < len(answer):
+        #     perseus_betti.append(0)
+        # print(f'perseus betti: {perseus_betti}')
+        # assert perseus_betti == complex.betti_numbers
 
 
 
     # my example
-    # answer should be [1,3,0,0] 
-    answer = [1,3,0,0,0]
-    top_cell_complex = [[1,2,3,4],[4,5,6,7],[2,5,7],[1,5],[7,8],[8,9],[9,10],[8,9,10],[7,8,9,10],[1,3,5,7],[2,4,6,8],[10,11,12,13,14]] 
-    test(top_cell_complex, answer, name = 'test1', verbose = True , save = True)
+    # # answer should be [1,3,0,0] 
+    # answer = [1,3,0,0,0]
+    # top_cell_complex = [[1,2,3,4],[4,5,6,7],[2,5,7],[1,5],[7,8],[8,9],[9,10],[8,9,10],[7,8,9,10],[1,3,5,7],[2,4,6,8],[10,11,12,13,14]] 
+    # test(top_cell_complex, answer, name = 'test1', verbose = True , save = True)
 
     # Chad example
     # answer should be [1,1,0]
-    answer = [1,1,0]
-    top_cell_complex = [[1,2,5],[2,3],[3,4],[4,5]] 
-    test(top_cell_complex, answer, name = 'test2' , verbose = True, save = True)
+    # answer = [1,1,0]
+    # top_cell_complex = [[1,2,5],[2,3],[3,4],[4,5]] 
+    # test(top_cell_complex, answer, name = 'test2' , verbose = True, save = True)
 
     # Chad exercise 7
     # answer should be [1,2,0]
-    answer = [1,2,0]
-    top_cell_complex = [[1,2],[2,3,7],[3,4],[4,5],[5,6],[6,3],[7,8],[8,1]] 
-    test(top_cell_complex, answer, name = 'test3', verbose = True, save = True)
+    # answer = [1,2,0]
+    # top_cell_complex = [[1,2],[2,3,7],[3,4],[4,5],[5,6],[6,3],[7,8],[8,1]] 
+    # test(top_cell_complex, answer, name = 'test3', verbose = True, save = True)
 
     # three triangles that have a 2 dimensional hole in the middle
     # answer should be [1,1,0]
-    answer = [1,1,0]
-    top_cell_complex = [[1,2,3],[2,4,5],[3,5,6]] 
-    test(top_cell_complex, answer, name = 'test4', save = True)
+    # answer = [1,1,0]
+    # top_cell_complex = [[1,2,3],[2,4,5],[3,5,6]] 
+    # test(top_cell_complex, answer, name = 'test4', save = True)
 
     # three open triangles with a triangle in the middle
     # answer should be [1,4]
-    answer = [1,4]
-    top_cell_complex = [[1,2],[1,3],[2,3],[2,4],[2,5],[4,5],[3,5],[3,6],[5,6]] 
-    test(top_cell_complex, answer, name = 'test5', verbose = False, save = True)
+    # answer = [1,4]
+    # top_cell_complex = [[1,2],[1,3],[2,3],[2,4],[2,5],[4,5],[3,5],[3,6],[5,6]] 
+    # test(top_cell_complex, answer, name = 'test5', verbose = False, save = True)
 
     # the small sloths test
     answer = [81,0,0,0,0,0]

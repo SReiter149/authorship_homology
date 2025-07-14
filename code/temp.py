@@ -1,7 +1,6 @@
+with open('../data/math/math.json', 'r') as f:
+    text = f.read()
+    replaced_text = text.replace('}{', ', ')
 
-skeleton = []
-with open('../data/sloths/small_sloths_complete_complex.txt') as f:
-    for line in f:
-        skeleton.append(line)
-    
-print(skeleton)
+with open('../data/math/math2.json', 'w') as f:
+    f.write(replaced_text)
