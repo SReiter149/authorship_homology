@@ -246,9 +246,10 @@ class SimplicialComplex:
             gamma_1 = top_simplex - v1
             gamma_2 = top_simplex - v2
 
+            # set of simplices
             star_gamma_1 = self.star(gamma_1, star_v2)
             star_gamma_2 = self.star(gamma_2, star_v1)
-            # pdb.set_trace()
+            pdb.set_trace()
             if star_gamma_1.union(star_gamma_2) == {top_simplex}:
                 self.top_cell_complex.add(gamma_1)
             self.top_cell_complex.remove(top_simplex)
