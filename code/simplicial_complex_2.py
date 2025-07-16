@@ -269,20 +269,11 @@ class SimplicialComplex:
         - star_set (a set of simplex ids): implementation of the star operation from Fellegara 2020 Homology 
         '''
 
-        star_set = set()
+        star_set = set.intersection(*[self.vertex_maps[vertex] for vertex in face])
 
-        # Case 1: if the search space is the whole complex
-        if complex == None:
-            for simplex_id in self.vertex_maps[next(iter(face))]:
-                if face.issubset(self.simplex_maps[simplex_id]):
-                    star_set.add(simplex_id)
+        if complex != None:
+            star_set = star_set.intersection(complex)
         
-        # Case 2: if the search space is the given complex
-        else: 
-            for simplex_id in complex:
-                simplex = self.simplex_maps[simplex_id]
-                if set(face).issubset(simplex):
-                    star_set.add(simplex_id)
         return star_set
     
     def boundary_face(self, face, complex):
