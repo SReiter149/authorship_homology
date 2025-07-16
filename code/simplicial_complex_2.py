@@ -155,16 +155,12 @@ class SimplicialComplex:
         returns:
         - none
         """
-        # pdb.set_trace()
-        # try:
         new_simplex_id = self.max_simplex_id + 1
 
         self.simplex_maps[new_simplex_id] = simplex
         
         for vertex_id in simplex:
             self.vertex_maps[vertex_id].add(new_simplex_id)
-        # except:
-        #     pdb.set_trace()
 
         self.max_simplex_id += 1
 
@@ -233,6 +229,29 @@ class SimplicialComplex:
             for complex in self.top_cell_complex.values(): 
                 f.write(str(complex))
                 f.write(f'\n')
+            f.close()
+
+    def save_incidence_matrices(self):
+        with open(f'{self.data_location}/{self.name}_incidence_matrices.txt', 'w') as f:
+            f.write(f'transpose on import, rows are columns!\n')
+            for incidence_matrix in self.incidence_matrices:
+                for column_index in range(incidence_matrix.shape[1]):
+                    column = incidence_matrix[:, column_index]
+                    for x in column:
+                        f.write(f'{x} ')
+                    f.write(f'\n')
+                f.write(f"\n")
+
+    def save_complete_complex(self):
+        with open(f'{self.data_location}/{self.name}_complete_complex.txt', 'w') as f:
+            for complex in self.abstract_complex: 
+                f.write(str(complex))
+                f.write(f'\n')
+            f.close()
+
+    def save_betti_numbers(self):
+        with open(f'{self.data_location}/{self.name}_betti_numbers.txt', 'w') as f:
+            f.write(str(self.betti_numbers))
             f.close()
 
     # ----------HELPER FUNCTION----------
@@ -418,8 +437,7 @@ class SimplicialComplex:
             incidence_matrices.append(incidence_matrix)
         self.incidence_matrices = incidence_matrices
 
-    # ----------MAIN FUNCTIONS----------
-    
+    # ----------MAIN FUNCTIONS---------- 
     
     def perform_strong_collapses(self):
         """
@@ -492,7 +510,6 @@ class SimplicialComplex:
         """
         if self.verbose:
             print(f'before edge contractions \n{self}')
-        # pdb.set_trace()
         current_simplex_id = 0
         while current_simplex_id <= self.max_simplex_id:
             if current_simplex_id in self.simplex_maps.keys():
@@ -564,7 +581,49 @@ class SimplicialComplex:
             if self.verbose:
                 print(f"there are only single independent nodes, so the betti number is {self.betti_numbers[0]}")
     
+    # ----------SANITY CHECKS----------
+    def calculate_euler_characteristic(self):
+        """
+        combined with the euler characteristic calculation this can be a sanity check
+        
+        arguments: 
+        - None
+
+        Returns:
+        - None
+        """
+        euler_characteristic = 0
+        for idx, k_skeleton in self.abstract_complex.items():
+                euler_characteristic += len(k_skeleton) * (-1) ** idx
+        self.euler_characteristic = euler_characteristic
+
+    def calculate_betti_sum(self):
+        """
+        combined with the euler characteristic calculation this can be a sanity check
+
+        arguments: 
+        - None
+
+        Returns:
+        - None
+        """
+        betti_sum = 0
+        for idx, betti_num in enumerate(self.betti_numbers):
+            betti_sum += betti_num * ((-1) ** idx)
+        self.betti_sum = betti_sum
+
+    # ----------UNTESTED----------
     
+    def build_perseus_simplex(self):
+        with open(f'{self.data_location}/{self.name}_perseus.txt', 'w+') as f:
+            f.write(f'1 \n')
+            for complex in self.top_cell_complex:
+                line = f'{len(complex) - 1} '
+                line += ' '.join([str(x) for x in complex])
+                line += f' {len(complex)} \n'
+                f.write(line)
+        print(f'perseus location: {f"{self.data_location}/{self.name}_perseus.txt"}')
+
     # ----------RUN THIS----------
     def calculate_all(self, save = False, verbose = None):
         '''
@@ -597,6 +656,12 @@ class SimplicialComplex:
         self.build_incidence_matrices()
         self.calculate_betti_numbers()
 
+        if self.save:
+            self.save_top_complex()
+            self.save_incidence_matrices()
+            self.save_complete_complex()
+            self.save_betti_numbers()
+
 if __name__ == '__main__':
     def test(top_cell_complex, answer, name, *args, **kwargs):
         data_location='../data/simplex_tests'
@@ -605,10 +670,10 @@ if __name__ == '__main__':
 
         assert complex.betti_numbers == answer
         
-        # complex.calculate_euler_characteristic()
-        # complex.calculate_betti_sum()
+        complex.calculate_euler_characteristic()
+        complex.calculate_betti_sum()
 
-        # assert complex.betti_sum == complex.euler_characteristic
+        assert complex.betti_sum == complex.euler_characteristic
 
         # compare with perseus
         # complex.build_perseus_simplex()

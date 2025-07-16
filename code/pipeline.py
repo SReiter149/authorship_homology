@@ -5,7 +5,7 @@ import os
 
 from query_open_alex import *
 from graph import *
-from simplicial_complex import *
+from simplicial_complex_2 import *
 
 
 
@@ -48,7 +48,7 @@ class Pipeline:
     def run_analysis(self, dataset, level = None):
         complex = SimplicialComplex(top_cell_complex = dataset, data_location = self.data_location, name = f'{self.name}_level{level}', verbose = self.verbose, save=True)
         complex.calculate_all(save = True, verbose= self.verbose)
-        complex.build_perseus_simplex()
+        # complex.build_perseus_simplex()
         if self.verbose:
             print(complex.betti_numbers)
 
@@ -93,8 +93,8 @@ class Pipeline:
 if __name__ == "__main__":
 
     # small sloths
-    pipeline = Pipeline(name = 'small_sloths', data_location= '../data/sloths', verbose=True, overwrite=True)
-    pipeline.main(query_url='title.search:Choloepus', max_bar_level= 15)
+    # pipeline = Pipeline(name = 'small_sloths', data_location= '../data/sloths', verbose=True, overwrite=True)
+    # pipeline.main(query_url='title.search:Choloepus', max_bar_level= 15)
 
     # # big sloths
     # pipeline = Pipeline(name = 'big_sloths', data_location='../data/sloths', overwrite= False, verbose=True)
@@ -104,8 +104,8 @@ if __name__ == "__main__":
     # pipeline('title.search:two%252520toed%252520sloth%7CCholoepus,abstract.search:two%252520toed%252520sloth%7CCholoepus', 'sloths', '../data/sloths', overwrite=True)
 
     # math theory
-    # pipeline = Pipeline(name = 'math_theory',data_location= '../data/math', verbose = True)
-    # pipeline.main(query_url='primary_topic.field.id:fields/26,primary_topic.id:t12170', max_bar_level=10)
+    pipeline = Pipeline(name = 'math_theory',data_location= '../data/math', verbose = True)
+    pipeline.main(query_url='primary_topic.field.id:fields/26,primary_topic.id:t12170', max_bar_level=10)
 
     # all of math
     # pipeline = Pipeline('primary_topic.field.id:fields/26', 'math', '../data/math')
