@@ -23,6 +23,44 @@ def query(query_url):
         page += 1
     yield results
 
+def getWorks(authorID):
+    '''
+    This function has no return statement but can easily be formatted to return all the papers or co-authors for a particular author
+    '''
+    works = f'https://api.openalex.org/works?filter=author.id:{authorID}'
+    r = requests.get(url = works)
+    data = r.json()
+    # pdb.set_trace()
+    papers = dict()
+    for paper in range(len(data['results'])):
+        authorIDs = []
+        for author in range(len(data['results'][paper]['authorships'])):
+            authorIDs.append(data['results'][paper]['authorships'][author]['author']['id'].split("/")[-1])
+        # pdb.set_trace()
+        papers[data['results'][paper]['title']] = authorIDs
+    return papers
+
+def papers_by_author(seedID = 'A5029009134', name = 'Kate_Meyer'):
+    '''
+    starts with a seed ID and gets all papers and their co-authors, then all co-author's co-aturhos.
+    returns a dictionary with the paper name as key and authorIDs as values
+    '''
+    round1_papers = getWorks(seedID)
+    round1_authors = {seedID}
+    for author_ids in round1_papers.values():
+        round1_authors = round1_authors.union(set(author_ids))
+    round2_papers = {}
+    for author_id in round1_authors:
+        round2_papers = getWorks(author_id) | round2_papers
+    combined_papers = round2_papers | round1_papers
+    # pdb.set_trace()
+    with open(f'../data/people/{name}_round1.json', 'w') as f:
+        json.dump(round1_papers, f)
+    with open(f'../data/people/{name}_round2.json', 'w') as f:
+        json.dump(round2_papers, f)
+    with open(f'../data/people/{name}.json', 'w') as f:
+        json.dump(combined_papers, f)
+
 def format_papers(results):
     paper_dict = {}
     for paper in results:
@@ -87,21 +125,7 @@ def findKate():
     #     print()
     return data
 
-def getWorks(authorID):
-    '''
-    This function has no return statement but can easily be formatted to return all the papers or co-authors for a particular author
-    '''
-    works = f'https://api.openalex.org/works?filter=author.id:{authorID}'#Kate's
-    r = requests.get(url = works)
-    data = r.json()
-    # pdb.set_trace()
-    papers = {}
-    for paper in range(len(data['results'])):
-        authorIDs = []
-        for author in range(len(data['results'][paper]['authorships'])):
-            authorIDs.append(data['results'][paper]['authorships'][author]['author']['id'].split("/")[-1])
-        papers[paper['title']] = authorIDs
-    return papers
+
 
 def getWorksFromJournal():
     papers = {}
