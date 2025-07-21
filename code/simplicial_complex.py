@@ -613,10 +613,11 @@ class SimplicialComplex:
     def build_perseus_simplex(self):
         with open(f'{self.data_location}/{self.name}{self.level}_perseus.txt', 'w+') as f:
             f.write(f'1 \n')
-            for complex in self.top_cell_complex:
-                line = f'{len(complex) - 1} '
-                line += ' '.join([str(x) for x in complex])
-                line += f' {len(complex)} \n'
+            for simplex in self.simplex_maps.values():
+                # dimension, elements, birthtimes
+                line = f'{len(simplex) - 1} '
+                line += ' '.join([str(x) for x in simplex])
+                line += f' {len(simplex)} \n'
                 f.write(line)
         print(f'perseus location: {f"{self.data_location}/{self.name}{self.level}_perseus.txt"}')
 
@@ -648,7 +649,10 @@ class SimplicialComplex:
         self.build_vertex_simplex_maps()
         self.perform_strong_collapses()
         self.perform_edge_contraction()
+        self.perform_strong_collapses()
+        self.perform_edge_contraction()
         self.build_abstract_complex()
+        self.build_perseus_simplex()
         self.build_incidence_matrices()
         self.calculate_betti_numbers()
 

@@ -101,10 +101,10 @@ if __name__ == "__main__":
     #     graph.main(f'../data/people/Kate_Meyer{level}_top_cell_complex.pkl',f'../data/people/Kate_Meyer{level}_graph.png')
 
     # Kate Papers
-    pipeline = Pipeline(name = 'Jeremy_Reiter', data_location= '../data/people', verbose=False, results=True, overwrite=True, save = True)
+    pipeline = Pipeline(name = 'Jeremy_Reiter', data_location= '../data/people', verbose=True, results=True, overwrite=False, save = True)
     papers_by_author(seedID='A5068565988', name="Jeremy_Reiter")
-    pipeline.main(max_bar_level=15)
-    for level in range(15):
+    pipeline.main(max_bar_level=1)
+    for level in range(1):
         graph.main(f'../data/people/Jeremy_Reiter{level}_top_cell_complex.pkl',f'../data/people/Jeremy_Reiter{level}_graph.png')
 
     # small sloths
