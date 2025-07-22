@@ -9,11 +9,8 @@ from itertools import combinations
 import pdb
 import numpy as np 
 from linear_algebra import *
-import subprocess
-import logging
-import os
-import random
 import pickle as pkl
+import traceback
 
 class SimplicialComplex:
     '''
@@ -33,13 +30,35 @@ class SimplicialComplex:
     '''
 
     def __init__(self, top_cell_complex, data_location = '../data', name = 'abstract_complex', level = None, verbose = False, results = False, save = False):
-        self.data_location = data_location
         self.name = name
         self.verbose = verbose
         self.results = results
         self.save = save
         self.level = level
+        self.user_vertex_dict = dict()
+        self.vertex_dict = dict()
 
+        self.save_name = f'{data_location}{self.name}'
+        if self.level != None:
+            self.save_name += str(level)
+
+        self.top_cell_complex = dict()
+        self.parse_user_top_cell(top_cell_complex)
+
+        # converts the elements to little integers
+
+        clean_top_cell_complex = dict()
+        for simplex_id, simplex in enumerate(self.top_cell_complex):
+            clean_top_cell_complex[simplex_id] = self.transform_user_simplex(simplex)
+            self.max_simplex_id = simplex_id
+
+        self.top_cell_complex = clean_top_cell_complex
+
+        self.max_dimension = max([len(simplex) for simplex in self.top_cell_complex.values()])
+        self.vertex_count = len(self.user_vertex_dict.keys())
+        self.max_vertex_id = self.vertex_count
+
+    def parse_user_top_cell(self, top_cell_complex):
         # parses top_cell_complex
         if isinstance(top_cell_complex, list):
             if isinstance(top_cell_complex[0], list):
@@ -70,21 +89,16 @@ class SimplicialComplex:
         else:
             raise ValueError('invalid input type')
 
-        # converts the elements to little integers
-        vertex_dict = dict()
-        clean_top_cell_complex = dict()
-        for simplex_id, simplex in enumerate(self.top_cell_complex):
-            for vertex in simplex:
-                if vertex not in vertex_dict.keys():
-                    vertex_dict[vertex] = len(vertex_dict.keys())
-            clean_top_cell_complex[simplex_id] = frozenset({vertex_dict[vertex] for vertex in simplex})
+    def transform_user_simplex(self, user_simplex):
+        for vertex_name in user_simplex:
+            if vertex_name not in self.user_vertex_dict.keys():
+                vertex_id = len(self.user_vertex_dict.keys())
+                self.user_vertex_dict[vertex_name] = vertex_id
+                self.vertex_dict[vertex_id] = {vertex_name}
 
-        self.top_cell_complex = clean_top_cell_complex
+        new_simplex = frozenset({self.user_vertex_dict[vertex_name] for vertex_name in user_simplex})
 
-        self.max_dimension = max([len(simplex) for simplex in self.top_cell_complex.values()])
-        self.vertex_count = len(vertex_dict.keys())
-        self.max_vertex_id = self.vertex_count
-        self.max_simplex_id = max(self.top_cell_complex.keys())
+        return new_simplex   
 
     def __repr__(self):
         '''
@@ -161,12 +175,17 @@ class SimplicialComplex:
 
         self.max_simplex_id += 1
 
-    def _replace_vertex(self, add_vertex_id, remove_vertex_id, simplex_id):
-            self.simplex_maps[simplex_id] = (self.simplex_maps[simplex_id] - {remove_vertex_id}).union({add_vertex_id})
-            self.vertex_maps[remove_vertex_id].remove(simplex_id)
-            if not bool(self.vertex_maps[remove_vertex_id]):
-                self.vertex_maps.pop(remove_vertex_id)
-            self.vertex_maps[add_vertex_id].add(simplex_id)
+    def _replace_vertex(self, add_vertex_id, remove_vertex_id):
+            # changes to the simplex_maps and vertex_maps
+            for simplex_id in self.vertex_maps[remove_vertex_id]:
+                self.simplex_maps[simplex_id] = (self.simplex_maps[simplex_id] - {remove_vertex_id}).union({add_vertex_id})
+            
+            # merging items in vertex_maps and vertex_dict
+            self.vertex_maps[add_vertex_id] = self.vertex_maps[add_vertex_id].union(self.vertex_maps[remove_vertex_id])
+            self.vertex_dict[add_vertex_id] = self.vertex_dict[add_vertex_id].union(self.vertex_dict[remove_vertex_id])
+
+            self.vertex_maps.pop(remove_vertex_id)
+            self.vertex_dict.pop(remove_vertex_id)
 
     def _remove_simplex(self, simplex_id):
         """
@@ -178,13 +197,16 @@ class SimplicialComplex:
         returns:
         - none
         """
+        
         simplex = self.simplex_maps.pop(simplex_id)
         for vertex_id in simplex:
             self.vertex_maps[vertex_id].remove(simplex_id)
             if not bool(self.vertex_maps[vertex_id]):
-                self.vertex_maps.pop(vertex_id)
+                self._remove_vertex(vertex_id)
+
+        self._check_consistency()
        
-    def _remove_vertex(self, vertex_id):
+    def _remove_vertex(self, vertex_id, dominating_vertex_id = None):
         """
         helper_function to remove a vertex from the data structure.
 
@@ -194,16 +216,24 @@ class SimplicialComplex:
         returns:
         - none
         """
+        # changes to the vertex_maps and simplex_maps
         vertex = self.vertex_maps.pop(vertex_id)
         for simplex_id in vertex:
             self.simplex_maps[simplex_id].remove(vertex_id)
             if not bool(self.simplex_maps[simplex_id]):
                 self.simplex_maps.pop(simplex_id)
 
+        # changes to the vertex_dict
+        if dominating_vertex_id:
+            self.vertex_dict[dominating_vertex_id] = (self.vertex_dict[dominating_vertex_id]).union(self.vertex_dict[vertex_id])  
+        self.vertex_dict.pop(vertex_id)
+        
     def _check_consistency(self):
         """
         Ensure vertex_maps only references simplex IDs that exist in simplex_maps.
         """
+
+        # ensures everything in the vertex_maps is in the simplex maps
         for vertex_id, simplex_ids in self.vertex_maps.items():
             for simplex_id in simplex_ids:
                 if vertex_id not in self.simplex_maps[simplex_id]:
@@ -212,7 +242,8 @@ class SimplicialComplex:
                     print(f'simplex maps: {self.simplex_maps}')
                     print(f'vertex maps: {self.vertex_maps}')
                     raise AssertionError(f"Inconsistency detected: vertex {vertex_id} references simplex {simplex_id} but not the other way")
-                
+
+        # ensures everything in the simplex_maps is in the vertex_maps     
         for simplex_id, vertex_ids in self.simplex_maps.items():
             for vertex_id in vertex_ids:
                 if simplex_id not in self.vertex_maps[vertex_id]:
@@ -221,14 +252,17 @@ class SimplicialComplex:
                     print(f'simplex maps: {self.simplex_maps}')
                     print(f'vertex maps: {self.vertex_maps}')
                     raise AssertionError(f"Inconsistency detected: simplex {simplex_id} references a {vertex_id} but not the other way")
+                
+        # ensures that vertex_dict and vertex_maps have the same vertices
+        assert self.vertex_maps.keys() == self.vertex_dict.keys(), pdb.set_trace()
 
     # -----------SAVE THINGS----------
     def save_top_complex(self): 
-        with open(f'{self.data_location}/{self.name}{self.level}_top_cell_complex.pkl', 'wb') as f:
+        with open(f'{self.save_name}_top_cell_complex.pkl', 'wb') as f:
             pkl.dump(self.top_cell_complex, f)
 
     def save_incidence_matrices(self):
-        with open(f'{self.data_location}/{self.name}{self.level}_incidence_matrices.txt', 'w') as f:
+        with open(f'{self.save_name}_incidence_matrices.txt', 'w') as f:
             f.write(f'transpose on import, rows are columns!\n')
             for incidence_matrix in self.incidence_matrices:
                 for column_index in range(incidence_matrix.shape[1]):
@@ -238,20 +272,25 @@ class SimplicialComplex:
                     f.write(f'\n')
                 f.write(f"\n")
 
-    def save_complete_complex(self):
-        with open(f'{self.data_location}/{self.name}{self.level}_complete_complex.txt', 'w') as f:
-            for complex in self.abstract_complex: 
-                f.write(str(complex))
-                f.write(f'\n')
-            f.close()
+    def save_reduced_complex(self):
+        with open(f'{self.save_name}_reduced_complex.pkl', 'wb') as f:
+            pkl.dump(self.abstract_complex, f)
+
+    def save_vertex_dict(self):
+        with open(f'{self.save_name}_vertex_dict.pkl', 'wb') as f:
+            pkl.dump(self.vertex_dict, f)
+
+    def save_simplex_maps(self):
+        with open(f'{self.save_name}_simplex_maps.pkl', 'wb') as f:
+            pkl.dump(self.simplex_maps, f)
 
     def save_betti_numbers(self):
-        with open(f'{self.data_location}/{self.name}{self.level}_betti_numbers.txt', 'w') as f:
+        with open(f'{self.save_name}_betti_numbers.txt', 'w') as f:
             f.write(str(self.betti_numbers))
             f.close()
 
     def write_results(self):
-        with open(f'{self.data_location}/{self.name}_results.txt', 'a') as f:
+        with open(f'{self.save_name}_results.txt', 'a') as f:
             
             f.write(f'\nfor level {self.level}:\n')
             f.write(f'the maximum dimension before reduction was {self.max_dimension} \n')
@@ -357,12 +396,10 @@ class SimplicialComplex:
             star_v2.remove(top_simplex_id)
             star_v1.remove(top_simplex_id)
 
-        for top_simplex_id in star_v1 - star_edge:
-            self._replace_vertex(remove_vertex_id=vertex1_id, add_vertex_id=vertex2_id, simplex_id=top_simplex_id)
+        if vertex1_id in self.vertex_dict.keys():
+            self._replace_vertex(remove_vertex_id=vertex1_id, add_vertex_id=vertex2_id)
         
-        if vertex1_id in self.vertex_maps.keys():
-            self.vertex_maps[vertex2_id] = self.vertex_maps[vertex2_id].union(self.vertex_maps[vertex1_id])
-            self.vertex_maps.pop(vertex1_id)
+
 
     # -----BUILDING------
     def build_vertex_simplex_maps(self):
@@ -452,6 +489,7 @@ class SimplicialComplex:
         vertex_queue = [vertex_id for vertex_id in self.vertex_maps.keys()]
         simplex_queue = []
         while vertex_queue: 
+            self._check_consistency()
             while vertex_queue:
                 # retrieving relivant data
                 vertex_id = vertex_queue.pop(0)
@@ -465,14 +503,15 @@ class SimplicialComplex:
                         if self.verbose:
                             print(f'vertex {vertex_id} is being dominated by {vertex2_id}')
                         # removing vertex from relivant places
-                        self._remove_vertex(vertex_id)
+                        self._remove_vertex(vertex_id, dominating_vertex_id=vertex2_id)
                         
                         # pushing all non-zero columns
                         simplex_queue.extend(vertex)
                         break
 
             # deleting repeated elements in column queue 
-            simplex_queue = list(set(simplex_queue))
+            simplex_queue = [simplex_id for simplex_id in list(set(simplex_queue)) if simplex_id in self.simplex_maps.keys()]
+            self._check_consistency()
             while simplex_queue:
                 # retrieving relivant data
                 simplex_id = simplex_queue.pop(0)
@@ -490,7 +529,7 @@ class SimplicialComplex:
                         vertex_queue.extend(simplex)
                         break
 
-            vertex_queue = list(set(vertex_queue))
+            vertex_queue = [vertex_id for vertex_id in list(set(vertex_queue)) if vertex_id in self.vertex_maps.keys()]
 
     def perform_edge_contraction(self):
         """
@@ -542,12 +581,17 @@ class SimplicialComplex:
             dim_ims = []
             for i, matrix in enumerate(self.incidence_matrices):
                 if matrix.size != 0:
-                    dim_ker, dim_im = calc_dim_ker_im(matrix)
-                    try:
-                        assert np.linalg.matrix_rank(matrix) == dim_im
-                    except:
-                        print("catching numpy and my linear algebra disagree")
-                        pdb.set_trace()
+                    dim_im = np.linalg.matrix_rank(matrix)
+                    dim_ker = matrix.shape[1] - dim_im
+                    """
+                    Here is my attempt to do all the linear algebra by myself. Was a cool project but turned out to be several times slower than the state of the art
+                    """
+                    # dim_ker, dim_im = calc_dim_ker_im(matrix)
+                    # try:
+                    #     assert np.linalg.matrix_rank(matrix) == dim_im
+                    # except:
+                    #     print("catching numpy and my linear algebra disagree")
+                    #     pdb.set_trace()
                 else:
                     dim_ker, dim_im = (0,0)
                 dim_kers.append(dim_ker)
@@ -577,6 +621,52 @@ class SimplicialComplex:
             if self.verbose or self.results:
                 print(f"there are only single independent nodes, so the betti number is {self.betti_numbers[0]}")
     
+    def find_colab_distance(self, colab1, colab2, width = 0):
+
+        colab1 = self.transform_user_simplex(colab1)
+        colab2 = self.transform_user_simplex(colab2)
+
+        check1 = False
+        check2 = False
+
+        for simplex in self.top_cell_complex.values():
+            if colab1 <= simplex:
+                check1 = True
+            if colab2 <= simplex:
+                check2 = True
+
+        assert check1
+        assert check2 
+
+        distance_dict = {simplex_id: 0 for simplex_id in set.intersection(*[self.vertex_maps[vertex] for vertex in colab1])}
+        queue = [key for key in distance_dict.keys()]
+
+        while queue:
+            current_simplex_id = queue.pop(0)
+            next_simplexes = set()
+            for vertex_ids in combinations(self.simplex_maps[current_simplex_id], width + 1):
+                next_simplexes = next_simplexes.union(self.star(set(vertex_ids)))
+            for next_simplex_id in next_simplexes:
+                if next_simplex_id in distance_dict.keys():
+                    if distance_dict[next_simplex_id] > distance_dict[current_simplex_id] + 1:
+                        distance_dict[next_simplex_id] = distance_dict[current_simplex_id] + 1
+                        queue.append(next_simplex_id)
+                else:
+                    distance_dict[next_simplex_id] = distance_dict[current_simplex_id] + 1
+                    queue.append(next_simplex_id)
+
+
+        result = float('inf')
+        for simplex_id, vertex_ids in self.top_cell_complex.items():
+            if colab2 <= vertex_ids:
+                if simplex_id in distance_dict.keys():
+                    result = min(result, distance_dict[simplex_id])
+
+        if result == float('inf'):
+            result = -1
+        return result
+        
+
     # ----------SANITY CHECKS----------
     def calculate_euler_characteristic(self):
         """
@@ -611,7 +701,7 @@ class SimplicialComplex:
     # ----------UNTESTED----------
     
     def build_perseus_simplex(self):
-        with open(f'{self.data_location}/{self.name}{self.level}_perseus.txt', 'w+') as f:
+        with open(f'{self.save_name}_perseus.txt', 'w+') as f:
             f.write(f'1 \n')
             for simplex in self.simplex_maps.values():
                 # dimension, elements, birthtimes
@@ -619,10 +709,18 @@ class SimplicialComplex:
                 line += ' '.join([str(x) for x in simplex])
                 line += f' {len(simplex)} \n'
                 f.write(line)
-        print(f'perseus location: {f"{self.data_location}/{self.name}{self.level}_perseus.txt"}')
+        print(f'perseus location: {f"{self.save_name}_perseus.txt"}')
 
     # ----------RUN THIS----------
-    def calculate_all(self, save = False, verbose = None, results = None):
+    def run_colab_distance(self,colab1, colab2, width = None, save = None, verbose = None, results = None):
+        self.build_vertex_simplex_maps()
+        if width:
+            distance = self.find_colab_distance(colab1, colab2, width)
+        else:
+            distance = self.find_colab_distance(colab1, colab2)
+        return distance
+
+    def run_betti(self, save = None, verbose = None, results = None):
         '''
         parameters:
             self
@@ -646,36 +744,50 @@ class SimplicialComplex:
         if save:
             self.save = save
 
-        self.build_vertex_simplex_maps()
-        self.perform_strong_collapses()
-        self.perform_edge_contraction()
-        self.perform_strong_collapses()
-        self.perform_edge_contraction()
-        self.build_abstract_complex()
-        self.build_perseus_simplex()
-        self.build_incidence_matrices()
-        self.calculate_betti_numbers()
+        try:
+            self.build_vertex_simplex_maps()
+            for _ in range(2):
+                self.perform_strong_collapses()
+                self.perform_edge_contraction()
+            self.build_abstract_complex()
+            self.build_perseus_simplex()
+            self.build_incidence_matrices()
+            self.calculate_betti_numbers()
+        except Exception:
+            print(traceback.format_exc())
+            pdb.post_mortem()
 
         if self.save:
             self.save_top_complex()
             self.save_incidence_matrices()
-            self.save_complete_complex()
+            self.save_reduced_complex()
+            self.save_vertex_dict()
+            self.save_simplex_maps()
             self.save_betti_numbers()
             self.write_results()
 
 if __name__ == '__main__':
-    def test(top_cell_complex, answer, name, *args, **kwargs):
-        data_location='../data/simplex_tests'
-        complex = SimplicialComplex(top_cell_complex, data_location = data_location, name = name, *args, **kwargs)
-        complex.calculate_all()
+    def test(top_cell_complex, answer, name, colab1 = False, colab2 = False, width = 0, *args, **kwargs):
+        try:
+            data_location='../data/simplex_tests/'
+            complex = SimplicialComplex(top_cell_complex, data_location = data_location, name = name, *args, **kwargs)
 
-        assert complex.betti_numbers == answer
-        
-        complex.calculate_euler_characteristic()
-        complex.calculate_betti_sum()
+            if bool(colab1) & bool(colab2):
+                distance = complex.run_colab_distance(colab1, colab2, width)
+                print(f'distance between {colab1}, and {colab2} is {distance}')
 
-        assert complex.betti_sum == complex.euler_characteristic
+            complex.run_betti()
 
+            assert complex.betti_numbers == answer
+            
+            complex.calculate_euler_characteristic()
+            complex.calculate_betti_sum()
+
+            assert complex.betti_sum == complex.euler_characteristic
+
+        except Exception:
+            print(traceback.format_exc())
+            pdb.post_mortem()
         # compare with perseus
         # complex.build_perseus_simplex()
         # subprocess.run(["arch", "-x86_64", "./perseus",
@@ -701,43 +813,51 @@ if __name__ == '__main__':
 
 
     # can't be strong reduced must be edge collapsed
-    answer = [1]
-    top_cell_complex = [[1,2,3],[2,3,4]] 
-    test(top_cell_complex, answer, name = 'test0', verbose = True , save = True)
+    # answer = [1]
+    # top_cell_complex = [[1,2,3],[2,3,4]] 
+    # test(top_cell_complex, answer, name = 'test0', colab1 = {1,2}, colab2 = {3,4}, verbose = True , save = True)
 
     # my example
     # answer should be [1,3,0,0] 
-    answer = [1,3]
-    top_cell_complex = [[1,2,3,4],[4,5,6,7],[2,5,7],[1,5],[7,8],[8,9],[9,10],[8,9,10],[7,8,9,10],[1,3,5,7],[2,4,6,8],[10,11,12,13,14]] 
-    test(top_cell_complex, answer, name = 'test1', verbose = True , save = True)
+    # answer = [1,3]
+    # top_cell_complex = [[1,2,3,4],[4,5,6,7],[2,5,7],[1,5],[7,8],[8,9],[9,10],[8,9,10],[7,8,9,10],[1,3,5,7],[2,4,6,8],[10,11,12,13,14]] 
+    # test(top_cell_complex, answer, colab1 = {12,13,14}, colab2 = {1,2,3}, name = 'test1', verbose = True , save = True)
 
 
 
     # Chad example
     # answer should be [1,1,0]
-    answer = [1,1]
-    top_cell_complex = [[1,2,5],[2,3],[3,4],[4,5]] 
-    test(top_cell_complex, answer, name = 'test2' , verbose = True, save = True)
+    # answer = [1,1]
+    # top_cell_complex = [[1,2,5],[2,3],[3,4],[4,5]] 
+    # test(top_cell_complex, answer, name = 'test2' , verbose = True, save = True)
 
     # Chad exercise 7
     # answer should be [1,2,0]
-    answer = [1,2]
-    top_cell_complex = [[1,2],[2,3,7],[3,4],[4,5],[5,6],[6,3],[7,8],[8,1]] 
-    test(top_cell_complex, answer, name = 'test3', verbose = True, save = True)
+    # answer = [1,2]
+    # top_cell_complex = [[1,2],[2,3,7],[3,4],[4,5],[5,6],[6,3],[7,8],[8,1]] 
+    # test(top_cell_complex, answer, name = 'test3', verbose = True, save = True)
 
     # three triangles that have a 2 dimensional hole in the middle
     # answer should be [1,1,0]
-    answer = [1,1]
-    top_cell_complex = [[1,2,3],[2,4,5],[3,5,6]] 
-    test(top_cell_complex, answer, name = 'test4', save = True)
+    # answer = [1,1]
+    # top_cell_complex = [[1,2,3],[2,4,5],[3,5,6]] 
+    # test(top_cell_complex, answer, name = 'test4', save = True)
 
     # three open triangles with a triangle in the middle
     # answer should be [1,4]
-    answer = [1,4]
-    top_cell_complex = [[1,2],[1,3],[2,3],[2,4],[2,5],[4,5],[3,5],[3,6],[5,6]] 
-    test(top_cell_complex, answer, name = 'test5', verbose = False, save = True)
+    # answer = [1,4]
+    # top_cell_complex = [[1,2],[1,3],[2,3],[2,4],[2,5],[4,5],[3,5],[3,6],[5,6]] 
+    # test(top_cell_complex, answer, name = 'test5', verbose = False, save = True)
 
     # the small sloths test
     answer = [81]
     top_cell_complex = [[1, 2], [3, 4], [5, 6, 7, 8], [9, 10, 11, 12, 13], [14, 15, 16], [17, 18], [19, 20], [21, 22, 23, 24], [25, 26, 27, 17, 18], [21, 22, 23, 24], [14, 16], [28, 29, 30], [31, 32], [33, 18, 34, 35], [36, 37], [38, 39], [21, 23, 40, 41, 24], [18, 42, 43], [44, 45, 46, 47, 48, 49], [50, 51, 52, 53, 54], [55, 56, 57, 58], [59, 60, 61], [62, 63, 64, 65], [66, 67, 68, 69], [70, 71], [72, 73], [74, 75, 23], [76, 77, 78, 79], [80, 81, 82, 83, 84], [85, 86, 87, 88, 89], [90, 91], [92, 93, 94], [95, 96, 97], [98, 99, 100, 101], [102, 103, 104, 105, 106], [39, 38], [107, 18], [108, 109], [110, 111, 112], [113, 114, 115, 116, 117], [118, 119, 120], [121, 122], [123, 124, 80], [125, 126, 127, 128], [129, 130], [131, 132, 133, 134], [135, 136, 137, 138], [139, 140, 141, 142, 143, 144], [145, 146, 147, 148, 149, 150], [151, 152, 153], [154, 155, 156], [157, 158, 159, 160, 161, 162], [163, 164], [165, 166], [167, 168, 169, 170, 171], [81, 172, 173, 174, 80], [175, 176, 177, 178], [179, 18, 180], [181, 182, 183, 18], [184, 185, 186, 187], [188, 189, 190, 191, 192], [193, 194, 195, 196], [197, 17], [198, 18, 199], [200, 201], [202, 185, 186, 187], [203, 204, 205, 132], [206, 207, 208, 95], [209, 210], [211, 186, 185, 187], [212, 213, 214, 215, 216, 217], [218, 18], [219, 220, 221], [222, 223, 224, 225], [226, 227, 228, 229], [230, 231], [232, 233, 234], [235, 236], [237, 238, 239], [240, 241], [200, 201], [242, 243], [244, 245], [246, 247, 248], [249, 250, 251, 252], [106, 102, 253, 254], [255, 44, 46, 256, 257, 49], [258, 259], [18, 260], [261, 18], [107, 18], [262, 263], [264, 265, 266], [267, 268, 269, 270], [72, 73], [264, 265, 266], [271, 272, 273, 274], [275, 276, 277], [264, 278, 279], [280, 281], [282, 283, 284, 285, 286, 287], [288, 289, 290, 291], [292, 293], [294, 295, 296], [34, 297], [298, 299, 300], [301, 302, 250, 303, 252, 251], [304, 305, 306, 307], [308, 309], [310, 311, 312], [313, 314], [315, 316], [33, 297, 34, 18], [297, 33, 18, 34]]
     test(top_cell_complex, answer, name = 'small_sloth', verbose = True, save = True) 
+
+    # distance test
+    # top_cell_complex = [[0,1,2,3,4,5,6,7],[4,5,6,7,8,9,10,11],[8,9,10,11,12,13,14,15],[12,13,14,15,16,17,18,19],[16,17,18,19,20,21,22,23]]
+    # test(top_cell_complex=top_cell_complex, answer = [1],colab1={1,2,3,4}, colab2 = {20,21,22,23},name = 'distance_test', width = 3)
+
+    # distance test 2
+    # top_cell_complex = [[0,1,2],[1,2,3],[2,3,4],[3,4,5],[0,5]]
+    # test(top_cell_complex=top_cell_complex, answer = [1,1],colab1={0,1}, colab2 = {4,5},name = 'distance_test2', width = 2)

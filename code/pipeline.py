@@ -14,43 +14,42 @@ class Pipeline:
         self.data_location = data_location
         self.name = name
         self.overwrite = overwrite
-        self.file_path = f'{self.data_location}/{self.name}.json'
+        self.dataset_location = f'{self.data_location}/{self.name}.json'
         self.verbose = verbose
         self.results = results
         self.save = save
 
-    def get_data(self, query_url):    
 
-        f = open(self.file_path, 'w+')
-        f.write('{')
-        not_first = False
-
-        query_url = f'https://api.openalex.org/works?filter={query_url}'
-        for results in query(query_url): 
-            paper_dict = format_papers(results)
-            for key,value in paper_dict.items():
-                if not_first:
-                    f.write(', ')
-                else:
-                    not_first = True
-                json.dump(key, f)  
-                f.write(': ')
-                json.dump(value, f)
-        f.write('}')     
-        f.close()
-
-    def load_data(self):
-        with open(self.file_path, 'r') as f:
+    def load_data(self, dataset_location = None):
+        if dataset_location == None:
+            dataset_location = self.dataset_location
+        with open(dataset_location, 'r') as f:
             dataset = json.load(f)
             self.dataset = {key: frozenset(dataset[key]) for key in dataset.keys()}
             if self.verbose or self.results:
                 print(f'dataset size: {len(dataset.keys())}')
 
+    def run_betti_analysis(self, dataset = None, max_bar_level = 1):
+        if dataset == None:
+            dataset = self.dataset
+        for level, dataset in enumerate(self.raise_bar(max_bar_level)):
+            if dataset:
+                if self.verbose:
+                    print(f'Now beginning analysis of level {level}')         
+                complex = SimplicialComplex(top_cell_complex = dataset, data_location = self.data_location, name = f'{self.name}', level=level, verbose = self.verbose, results = self.results, save=self.save)
+                complex.run_betti()
 
-    def run_analysis(self, dataset, level = None):
-        complex = SimplicialComplex(top_cell_complex = dataset, data_location = self.data_location, name = f'{self.name}', level=level, verbose = self.verbose, results = self.results, save=self.save)
-        complex.calculate_all()
+    def run_distance_analysis(self, colab1, colab2, dataset = None, width = None):
+        if dataset == None:
+            dataset = self.dataset
 
+
+        complex = SimplicialComplex(top_cell_complex = dataset, data_location = self.data_location, name = f'{self.name}', verbose = self.verbose, results = self.results, save=self.save)
+        if width:
+            distance = complex.run_colab_distance(colab1, colab2, width = width)
+        else:
+            distance = complex.run_colab_distance(colab1, colab2)
+        return distance
 
     def raise_bar(self, max_bar_level):
         # a list of dictionaries,
@@ -73,39 +72,41 @@ class Pipeline:
 
         for level in levels:
             dataset = frozenset( frozenset(colabs) for colabs in level.keys() )
-            yield dataset
-
-    def papers_by_topic(self, query_url = None):
-        # build the dataset
-        if os.path.isfile(self.file_path) == False or os.stat(self.file_path).st_size == 0 or self.overwrite == True:
-            if query_url != None:
-                self.get_data(query_url)
-
-    def main(self, max_bar_level = 1):
-        self.load_data()
-        for level, dataset in enumerate(self.raise_bar(max_bar_level)):
-            if dataset:
-                if self.verbose:
-                    print(f'Now beginning analysis of level {level}')         
-                self.run_analysis(dataset= dataset, level=level)
-
+            if bool(dataset):
+                yield dataset
+            else:
+                print(f'there is no data at level {level}')
 
 
 if __name__ == "__main__":
 
-    # Kate Papers
-    # pipeline = Pipeline(name = 'Kate_Meyer', data_location= '../data/people', verbose=False, results=True, overwrite=True, save = True)
-    # # papers_by_author()
-    # pipeline.main(max_bar_level=10)
-    # for level in range(10):
-    #     graph.main(f'../data/people/Kate_Meyer{level}_top_cell_complex.pkl',f'../data/people/Kate_Meyer{level}_graph.png')
+    erdos_id =  "A5035271865"
+    deanna_id = 'A5039705998'
+    kate_id = 'A5029009134'
+
+    # Pipeline = Pipeline(name = 'deanna_erdos',data_location= '../data/people/', verbose=False, results=True, overwrite=True, save = True)
+    # Pipeline.load_data(dataset_location='../data/math/math_theory.json')
+    # distance = Pipeline.run_distance_analysis(colab1 = {deanna_id}, colab2 = {erdos_id}, width = 0)
+
+    # print(f'distance between deanna and erdos is {distance}')
+
 
     # Kate Papers
-    pipeline = Pipeline(name = 'Jeremy_Reiter', data_location= '../data/people', verbose=True, results=True, overwrite=False, save = True)
-    papers_by_author(seedID='A5068565988', name="Jeremy_Reiter")
-    pipeline.main(max_bar_level=1)
-    for level in range(1):
-        graph.main(f'../data/people/Jeremy_Reiter{level}_top_cell_complex.pkl',f'../data/people/Jeremy_Reiter{level}_graph.png')
+    # papers_by_author(verbose = True)
+    pipeline = Pipeline(name = 'Kate_Meyer', data_location= '../data/people/', verbose=True, results=True, overwrite=True, save = True)
+    pipeline.load_data()
+    pipeline.run_betti_analysis()
+    for level in range(10):
+        graph.main(data_location=f'../data/people/', save_location=f'../data/people/', name= f'Kate_Meyer{level}', special_nodes={'A5029009134'})
+
+    
+
+    # Jeremy Papers
+    # pipeline = Pipeline(name = 'Jeremy_Reiter', data_location= '../data/people', verbose=True, results=True, overwrite=False, save = True)
+    # papers_by_author(seedID='A5068565988', name="Jeremy_Reiter")
+    # pipeline.main(max_bar_level=1)
+    # for level in range(1):
+    #     graph.main(f'../data/people/Jeremy_Reiter{level}_top_cell_complex.pkl',f'../data/people/Jeremy_Reiter{level}_graph.png')
 
     # small sloths
     # pipeline = Pipeline(name = 'small_sloths', data_location= '../data/sloths', verbose=True, overwrite=False, save = True)
