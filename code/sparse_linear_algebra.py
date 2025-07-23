@@ -46,10 +46,6 @@ class Matrix:
                     return_string += f"({row_idx}, {self.nonzero_columns[i]}, {self.nonzero_values[i]}), "
 
         return return_string
-
-                
-
-
     
     def _check_consistency(self):
         if self.building:
@@ -65,6 +61,11 @@ class Matrix:
         self.nonzero_columns.append(column)
         self.nonzero_values.append(value)
 
+    def add_column(self, row_idxs, column_idx, values):
+        for i in range(len(row_idxs)):
+            self.add_nonzero_value(row_idxs[i], column_idx, values[i])
+
+
     def convert(self):
         assert self.building == True
         self.building = False
@@ -72,25 +73,21 @@ class Matrix:
 
         self.row_count = max(self.nonzero_rows) + 1
         self.column_count = max(self.nonzero_columns) + 1
-
-        row_permutation = np.argsort(self.nonzero_rows).tolist()
-
-
-        self.nonzero_columns = [self.nonzero_columns[i] for i in row_permutation]
-        self.nonzero_rows = [self.nonzero_rows[i] for i in row_permutation]
-        self.nonzero_values = [self.nonzero_values[i] for i in row_permutation]
         self.last_idx = len(self.nonzero_values)
 
+        matrix_tuples = sorted(list(set(list(zip(self.nonzero_rows, self.nonzero_columns, self.nonzero_values)))))
+
+        self.nonzero_rows, self.nonzero_columns, self.nonzero_values = list(zip(*matrix_tuples))
+
+        self.nonzero_rows = list(self.nonzero_rows)
+        self.nonzero_columns = list(self.nonzero_columns)
+        self.nonzero_values = list(self.nonzero_values)
 
         self.row_starts = [0 for _ in range(self.nonzero_rows[0] + 1)]
         for row_number in range(1,len(self.nonzero_rows)):
             self.row_starts.extend([row_number] * (self.nonzero_rows[row_number] - self.nonzero_rows[row_number-1]))
+        # pdb.set_trace()
 
-        for start_idx, end_idx in self.iterate_over_rows():
-            columns_permutation = np.argsort(self.nonzero_columns[start_idx: end_idx])
-            self.nonzero_columns[start_idx: end_idx] = [self.nonzero_columns[i + start_idx] for i in columns_permutation]
-            self.nonzero_values[start_idx: end_idx] = [self.nonzero_values[start_idx + i] for i in columns_permutation]
-    
     def iterate_over_rows(self):
         for row_idx in range(len(self.row_starts)):
             start_idx, end_idx = self.get_row_start_end(row_idx)
@@ -207,14 +204,13 @@ class Matrix:
         
 if __name__ == "__main__":
     try:
-        tests = [1]
+        tests = [0,1]
 
         if 0 in tests:
             M = Matrix()
-            M.add_nonzero_value(0,2,1)
-            M.add_nonzero_value(0,4,1)
-            M.add_nonzero_value(1,3,1)
-            M.add_nonzero_value(2,3,1)
+            M.add_column([0],2,[1])
+            M.add_column([1,2],3,[1,1])
+            M.add_column([0],4,[1])
             print(repr(M))
             M.convert()
             M.reduce_matrix()
@@ -222,12 +218,9 @@ if __name__ == "__main__":
 
         if 1 in tests:
             M = Matrix()
-            M.add_nonzero_value(0,4,1)
-            M.add_nonzero_value(0,2,1)
-            M.add_nonzero_value(1,3,1)
-            M.add_nonzero_value(2,3,1)
-            M.add_nonzero_value(3,4,1)
-            M.add_nonzero_value(3,2,1)            
+            M.add_column([0,3],2,[1,1])
+            M.add_column([1,2],3,[1,1])
+            M.add_column([0,3],4,[1,1])          
             print(repr(M))
             M.convert()
             dim_ker, dim_im = M.dim_ker_im()

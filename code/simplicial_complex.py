@@ -8,7 +8,9 @@ behaves funny in strong collapse
 from itertools import combinations
 import pdb
 import numpy as np 
-from linear_algebra import *
+import linear_algebra as la
+import sparse_linear_algebra as sla
+
 import pickle as pkl
 import traceback
 
@@ -441,7 +443,7 @@ class SimplicialComplex:
         self.complex_dimension = dimension
         self.abstract_complex = abstract_complex
 
-    def build_incidence_matrices(self):
+    def build_dense_incidence_matrices(self):
         '''
         builds dimension matrices from the simplicial complex
         saves dimension matrices as a list of list of lists
@@ -469,6 +471,36 @@ class SimplicialComplex:
                 incidence_matrix[indices, simplex_idx] = values
             incidence_matrices.append(incidence_matrix)
         self.incidence_matrices = incidence_matrices
+
+    def build_sparse_incidence_matrices(self):
+        '''
+        builds dimension matrices from the simplicial complex
+        saves dimension matrices as a list of list of lists
+        - the matrices
+        - rows of the dimension matrix
+        - columns of the dimension matrix
+
+        there will be one fewer matrix than the max dimension in the simplicial complex
+        '''
+
+        incidence_matrices = []
+        for dimension in range(0, self.complex_dimension - 1):
+            if self.verbose:
+                print(f'now building dimension {dimension} of {len(incidence_matrices)} of the incidence matrices')
+                
+            simplex_idx_dict = {simplex: idx for idx, simplex in enumerate(self.abstract_complex[dimension])}
+            incidence_matrix = np.zeros((len(self.abstract_complex[dimension]), len(self.abstract_complex[dimension+1])), dtype = int)
+            values = [(-1) ** (i+1) for i in range(dimension + 2)]
+
+            for simplex_idx, simplex in enumerate(self.abstract_complex[dimension + 1]):
+                indices = []
+                for vertex in sorted(list(simplex)):
+                    subsimplex = simplex - {vertex}
+                    indices.append(simplex_idx_dict[subsimplex])
+                incidence_matrix[indices, simplex_idx] = values
+            incidence_matrices.append(incidence_matrix)
+        self.incidence_matrices = incidence_matrices
+
 
     # ----------MAIN FUNCTIONS---------- 
     
@@ -586,7 +618,7 @@ class SimplicialComplex:
                     """
                     Here is my attempt to do all the linear algebra by myself. Was a cool project but turned out to be several times slower than the state of the art
                     """
-                    # dim_ker, dim_im = calc_dim_ker_im(matrix)
+                    # dim_ker, dim_im = la.calc_dim_ker_im(matrix)
                     # try:
                     #     assert np.linalg.matrix_rank(matrix) == dim_im
                     # except:
