@@ -54,6 +54,11 @@ class Matrix:
         elif self.computing:
             assert len(self.nonzero_columns) == len(self.nonzero_values)
 
+    def shape(self):
+        if self.building == True:
+            return (len(self.nonzero_rows), len(self.nonzero_columns))
+        elif self.computing == True:
+            return (self.row_count, self.column_count)
 
     def add_nonzero_value(self, row, column, value):
         assert self.building == True
@@ -171,12 +176,15 @@ class Matrix:
             i = 0
             while i < len(unchecked_rows):
                 row1_columns, row1_values = self.get_row(unchecked_rows[i])
-                if row1_columns[0] == column_idx:
+                if not(bool(row1_columns)):
+                    unchecked_rows.pop(i)
+                elif row1_columns[0] == column_idx:
                     row1_idx = unchecked_rows[i]
                     unchecked_rows.pop(i)
                     linearly_independent_rows_count += 1
                     break  
-                i += 1
+                else:
+                    i += 1
             if 'row1_idx' in locals():
                 while i < len(unchecked_rows):
                     row2_columns, row2_values = self.get_row(unchecked_rows[i])
