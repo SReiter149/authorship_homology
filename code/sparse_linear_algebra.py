@@ -1,6 +1,5 @@
 import numpy as np
 
-
 import pdb
 import traceback
 
@@ -9,18 +8,18 @@ class Matrix:
     There will be two forms of this matrix. The first being that to build the matrix, and the second to be that which computes row operations and row reductions.
     """
 
-
-    def __init__(self, verbose = False):
+    def __init__(self, verbose = False, tolerance = 1e-9, warning = 1e-7):
         self.building = True
         self.computing = False
         self.rref_flag = False
         self.verbose = verbose
+        self.tolerance = tolerance
+        self.warning = warning
 
         self.nonzero_rows = []
         self.nonzero_columns = []
         self.nonzero_values = []
 
-    
     def __repr__(self):
         return_string = ""
 
@@ -69,6 +68,8 @@ class Matrix:
             self.nonzero_values.append(value)
 
     def add_column(self, row_idxs, column_idx, values):
+        assert self.building == True
+        assert len(row_idxs) == len(values)
         for i in range(len(row_idxs)):
             self.add_nonzero_value(row_idxs[i], column_idx, values[i])
 
@@ -81,7 +82,7 @@ class Matrix:
         self.row_count = max(self.nonzero_rows) + 1
         self.column_count = max(self.nonzero_columns) + 1
 
-        matrix_tuples = sorted(list(set(list(zip(self.nonzero_rows, self.nonzero_columns, self.nonzero_values)))))
+        matrix_tuples = sorted(list(zip(self.nonzero_rows, self.nonzero_columns, self.nonzero_values)))
 
         self.nonzero_rows, self.nonzero_columns, self.nonzero_values = list(zip(*matrix_tuples))
 
@@ -92,37 +93,33 @@ class Matrix:
         self.row_starts = [0 for _ in range(self.nonzero_rows[0] + 1)]
         for row_number in range(1,len(self.nonzero_rows)):
             self.row_starts.extend([row_number] * (self.nonzero_rows[row_number] - self.nonzero_rows[row_number-1]))
-        # pdb.set_trace()
-        self.first_nonzero = self.row_starts.copy()
         if self.verbose:
             print("conversion complete")
 
-    def get_first_nonzero(self,row_idx):
+    def get_first_nonzero_column(self,row_idx):
         # constant time function
-        assert self.computing
-
-        nonzero_idx = self.first_nonzero[row_idx]
-        if nonzero_idx != None:
-            column_idx = self.nonzero_columns[nonzero_idx]
-            value = self.nonzero_values[nonzero_idx]
+        if self.computing:
+            start_idx, end_idx = self.get_row_start_end(row_idx)
+            if start_idx == end_idx:
+                return None
+            column_idx = self.nonzero_columns[start_idx]
+            return column_idx
         else:
-            column_idx = None
-            value = None
-        return value, column_idx
+            raise BrokenPipeError("You shouldn't be able to get here")
     
-    def update_first_nonzero(self, row_idx):
-        # O(n) where n is the number of saved elements in the row
-        assert self.computing
+    # def update_first_nonzero(self, row_idx):
+    #     # O(n) where n is the number of saved elements in the row
+    #     assert self.computing
 
-        current_idx = self.first_nonzero[row_idx]
-        _, end_idx = self.get_row_start_end(row_idx)
+    #     current_idx = self.first_nonzero[row_idx]
+    #     _, end_idx = self.get_row_start_end(row_idx)
 
-        while self.nonzero_values[current_idx] == 0:
-            current_idx += 1
-            if current_idx >= end_idx:
-                current_idx = None
-                break
-        self.first_nonzero[row_idx] = current_idx
+    #     while self.nonzero_values[current_idx] == 0:
+    #         current_idx += 1
+    #         if current_idx >= end_idx:
+    #             current_idx = None
+    #             break
+    #     self.first_nonzero[row_idx] = current_idx
 
     def iterate_over_rows(self):
         for row_idx in range(len(self.row_starts)):
@@ -154,13 +151,19 @@ class Matrix:
         else:
             raise BrokenPipeError("You shouldn't be able to get here")
         
-    def update_row(self, row_idx, values):
+    def update_row(self, row_idx, values, column_idxs):
         if self.computing:
             start_idx, end_idx = self.get_row_start_end(row_idx)
-            
-            assert len(values) == end_idx - start_idx
 
-            self.nonzero_values[start_idx: end_idx] = values
+            # pdb.set_trace()
+            change = len(values) - (end_idx - start_idx)
+            if change == 0:
+                self.nonzero_values[start_idx:end_idx] = values
+                self.nonzero_columns[start_idx:end_idx] = column_idxs
+            else:
+                self.nonzero_values = self.nonzero_values[: start_idx] + values + self.nonzero_values[end_idx:]
+                self.nonzero_columns = self.nonzero_columns[: start_idx] + column_idxs + self.nonzero_columns[end_idx : ]
+                self.row_starts[row_idx + 1 : ] = [x + change for x in self.row_starts[row_idx + 1:]]
 
         elif self.building:
             raise NotImplementedError("Hasn't been built yet")
@@ -175,41 +178,56 @@ class Matrix:
         row1_column_idxs, row1_values = self.get_row(row1_idx)
         row2_column_idxs, row2_values = self.get_row(row2_idx)
 
-        nonzero_value1, nonzero_column1 = self.get_first_nonzero(row1_idx)
-        nonzero_value2, nonzero_column2 = self.get_first_nonzero(row2_idx)
         if self.verbose:
             print(f'row 1 {row1_idx}: values: {row1_values}, columns: {row1_column_idxs}')
             print(f'row 2 {row2_idx}: values: {row2_values}, columns: {row2_column_idxs}')
 
-        assert nonzero_column1 == nonzero_column2
+        assert row1_column_idxs[0] == row2_column_idxs[0]
 
-        factor = (-1) * (nonzero_value2 / nonzero_value1)
+        factor = (-1) * (row2_values[0] / row1_values[0])
 
-        # could be fancier w/ this
         row1_location = 0
         row2_location = 0
 
-        row1_value_counts = len(row1_values)
-        row2_value_counts = len(row2_values)
-
-        while (row1_location < row1_value_counts) and (row2_location < row2_value_counts):
+        while (row1_location < len(row1_values)) and (row2_location < len(row2_values)):
             if row1_column_idxs[row1_location] == row2_column_idxs[row2_location]:
                 row2_values[row2_location] += factor * row1_values[row1_location]
                 row1_location += 1 
                 row2_location += 1
             elif row1_column_idxs[row1_location] < row2_column_idxs[row2_location]:
-                row1_location += 1
-            
+                row2_values.append(factor * row1_values[row1_location])
+                row2_column_idxs.append(row1_column_idxs[row1_location])
+                row1_location += 1    
             else:
                 row2_location += 1
 
-        self.update_row(row2_idx, row2_values)
-        self.update_first_nonzero(row2_idx)
+        while (row1_location < len(row1_values)):
+            row2_values.append(factor * row1_values[row1_location])
+            row2_column_idxs.append(row1_column_idxs[row1_location])
+            row1_location += 1
+
+
+        row_tuples = sorted(list(zip(row2_column_idxs, row2_values)))
+        row_tuples = [row_tuple for row_tuple in row_tuples if abs(row_tuple[1]) > self.tolerance ]
+
+        if row_tuples == []:
+            self.update_row(row2_idx, [], [])
+            if self.verbose:
+                print(f'row 2 (updated) {row2_idx}: values: {[]}, columns: {[]}')
+            return True
+
+
+        row2_column_idxs, row2_values = list(zip(*row_tuples))
+
+        row2_column_idxs = list(row2_column_idxs)
+        row2_values = list(row2_values)
+        
+        self.update_row(row2_idx, row2_values, row2_column_idxs)
 
         if self.verbose:
-            print(f'row2 is now {row2_values}')
+            print(f'row 2 (updated) {row2_idx}: values: {row2_values}, columns: {row2_column_idxs}')
         # pdb.set_trace()
-        return self.first_nonzero[row2_idx] == None
+        return False
     
     def reduce_matrix(self):
         assert self.computing
@@ -220,14 +238,13 @@ class Matrix:
             rows = [i for i, val in enumerate(unchecked_rows) if val]
             i = 0
             while i < len(rows):
-                _, nonzero_column = self.get_first_nonzero(rows[i])
-                if nonzero_column == None:
-                    unchecked_rows[rows[i]] = False
-                    i += 1
-                elif nonzero_column == column_idx:
+                nonzero_column = self.get_first_nonzero_column(rows[i])
+                # if nonzero_column == None:
+                #     unchecked_rows[rows[i]] = False
+                #     i += 1
+                if nonzero_column == column_idx:
                     row1_idx = rows[i]
                     unchecked_rows[rows[i]] = False
-                    linearly_dependent_rows += 1
                     i += 1
                     break  
                 else:
@@ -235,21 +252,33 @@ class Matrix:
             if 'row1_idx' in locals():
                 while i < len(rows):
 
-                    _, nonzero_column = self.get_first_nonzero(rows[i])
+                    nonzero_column = self.get_first_nonzero_column(rows[i])
                     zero_row = False
                     if nonzero_column == None:
                         unchecked_rows[rows[i]] = False
                         i += 1
-                    else:
-                        if nonzero_column == column_idx:
-                            zero_row = self.reduce_rows(row1_idx, rows[i])
-                        if zero_row:
-                            unchecked_rows[rows[i]] = False
-                        i += 1
+                    if nonzero_column == column_idx:
+                        zero_row = self.reduce_rows(row1_idx, rows[i])
+                            
+                    if zero_row:
+                        linearly_dependent_rows += 1
+                        unchecked_rows[rows[i]] = False
+                    i += 1
                 del row1_idx
             if not any(unchecked_rows):
                 break
         return linearly_dependent_rows
+    
+    def count_pivots(self):
+        pivot_columns = set()
+
+        for i in self.row_starts:
+            if i >= len(self.nonzero_columns):
+                break
+            column_idx = self.nonzero_columns[i]
+            pivot_columns.add(column_idx)
+        # pdb.set_trace()
+        return len(pivot_columns)
     
     def dim_ker_im(self):
         assert self.computing
@@ -259,8 +288,11 @@ class Matrix:
             print(repr(self))
 
 
-        dim_im = self.reduce_matrix()
+        self.reduce_matrix()
+        dim_im = self.count_pivots()
         dim_ker = self.column_count - dim_im
+        if sorted([abs(x) for x in self.nonzero_values], reverse = True)[-1] < self.warning:
+            print(f"there are some values that might be computational arounding errors. For example maybe {sorted([abs(x) for x in self.nonzero_values], reverse = True)[-1]} should be 0")
         return dim_ker, dim_im
         
 if __name__ == "__main__":
@@ -270,10 +302,12 @@ if __name__ == "__main__":
 
     def compare_numpy(Matrix):
         assert Matrix.computing == True
-        numpy_Matrix = np.zeros((Matrix.row_count, Matrix.column_count))
-        for i in range(len(Matrix.nonzero_values)):
-            numpy_Matrix[Matrix.nonzero_rows[i], Matrix.nonzero_columns[i]] = Matrix.nonzero_values[i]
-        
+        row_count, column_count = Matrix.shape()
+        numpy_Matrix = np.zeros((row_count, column_count))
+        for row_idx in range(row_count):
+            start_idx, end_idx = Matrix.get_row_start_end(row_idx)
+            for i in range(start_idx, end_idx):
+                numpy_Matrix[row_idx, Matrix.nonzero_columns[i]] = Matrix.nonzero_values[i]
         return np.linalg.matrix_rank(numpy_Matrix) 
 
 
@@ -299,7 +333,9 @@ if __name__ == "__main__":
             M.add_column([0,3],4,[1,1])          
             print(repr(M))
             M.convert()
+            numpy_dim_im = compare_numpy(M)
             dim_ker, dim_im = M.dim_ker_im()
+            assert numpy_dim_im == dim_im
             assert (dim_ker, dim_im) == (3,2)
             print(dim_ker, dim_im)
             print(repr(M))
@@ -312,7 +348,9 @@ if __name__ == "__main__":
                 M.add_column([i], i, [1])      
             print(repr(M))
             M.convert()
+            numpy_dim_im = compare_numpy(M)
             dim_ker, dim_im = M.dim_ker_im()
+            assert numpy_dim_im == dim_im
             assert dim_ker == 0
             print(dim_ker, dim_im)
             print(repr(M))
@@ -322,23 +360,26 @@ if __name__ == "__main__":
             print("--- beginning test 3 ---")
             import numpy.random as rand
             M = Matrix(verbose = False)
-            for i in range(40):
-                col_idx = rand.randint(0,40,4)
-                M.add_column(col_idx, i, [1,-1,1,-1])  
-
-
+            dim = 200
+            nonzeros = 10
+            for i in range(dim):
+                row_idxs = rand.choice(dim,size =nonzeros, replace = False)
+                M.add_column(row_idxs, i, [(-1)*j for j in range(nonzeros)])  
                 
             # print(repr(M))
             M.convert()
-            compare_before = compare_numpy(M)
-            
+            print("computing numpy")
+            numpy_dim_im = compare_numpy(M)
+            print("computing my own")
             dim_ker, dim_im = M.dim_ker_im()
 
-            compare_after = compare_numpy(M)
+            print("computing numpy again")
+            after = compare_numpy(M)
 
             print(f'the dim_im I found {dim_im}')
-            print(f'compare before {compare_before}')
-            print(f'compare after {compare_after}')
+            print(f'compare before {numpy_dim_im}')
+            print(f'compare after {after}')
+            assert numpy_dim_im == dim_im
             # print(repr(M))
         
         if 4 in tests:
@@ -374,9 +415,10 @@ if __name__ == "__main__":
         profiler = cProfile.Profile()
         profiler.enable()
         test([3])
+        # test([0,1,2,3,4,5])
         profiler.disable()
         stats = pstats.Stats(profiler).sort_stats("tottime")
-        # stats.print_stats(20)
+        stats.print_stats(20)
 
     except Exception:
         print(traceback.format_exc())
