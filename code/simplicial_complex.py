@@ -457,7 +457,7 @@ class SimplicialComplex:
         incidence_matrices = []
         for dimension in range(0, self.complex_dimension - 1):
             if self.verbose:
-                print(f'now building dimension {dimension} of {len(incidence_matrices)} of the incidence matrices')
+                print(f'now building dimension {dimension} of {self.complex_dimension - 1} of the incidence matrices')
                 
             simplex_idx_dict = {simplex: idx for idx, simplex in enumerate(self.abstract_complex[dimension])}
             incidence_matrix = np.zeros((len(self.abstract_complex[dimension]), len(self.abstract_complex[dimension+1])), dtype = int)
@@ -492,7 +492,7 @@ class SimplicialComplex:
             subsimplex_idx_dict = dict()
 
 
-            Matrix = sla.Matrix()
+            Matrix = sla.Matrix(verbose = self.verbose)
             values = [(-1) ** (i+1) for i in range(dimension + 2)]
 
             for simplex_idx, simplex in enumerate(self.abstract_complex[dimension + 1]):
@@ -686,8 +686,8 @@ class SimplicialComplex:
             if colab2 <= simplex:
                 check2 = True
 
-        assert check1
-        assert check2 
+        assert check1, f"It appears {colab1} is not in the simplex"
+        assert check2, f"It appears {colab2} is not in the simplex"
 
         distance_dict = {simplex_id: 0 for simplex_id in set.intersection(*[self.vertex_maps[vertex] for vertex in colab1])}
         queue = [key for key in distance_dict.keys()]

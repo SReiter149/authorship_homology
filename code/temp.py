@@ -1,18 +1,22 @@
-import json
-from query_open_alex import *
-with open(f'../data/people/Kate_Meyer_round1.json', 'r') as f:
-    round1_papers = json.load(f)
+import pstats
+import random
+from sparse_linear_algebra import Matrix
+import cProfile
 
-round1_authors = set()
-for author_ids in round1_papers.values():
-    round1_authors = round1_authors.union(set(author_ids))
-# pdb.set_trace()
-round2_papers = {}
-for author_id in round1_authors:
-    round2_papers = getWorks(author_id) | round2_papers
-combined_papers = round2_papers | round1_papers
+def test_sparse_package():
+    # Build a 1000×1000 sparse matrix with 2000 random entries
+    M = Matrix()
+    for _ in range(5):
+        i = random.randrange(5)
+        j = random.randrange(5)
+        M.add_nonzero_value(i, j, 1)
+    M.convert()
+    M.dim_ker_im()
 
-with open(f'../data/people/Kate_Meyer_round2.json', 'w') as f:
-    json.dump(round2_papers, f)
-with open(f'../data/people/Key_Meyer.json', 'w') as f:
-    json.dump(combined_papers, f)
+if __name__ == "__main__":
+    profiler = cProfile.Profile()
+    profiler.enable()
+    test_sparse_package()
+    profiler.disable()
+    stats = pstats.Stats(profiler).sort_stats("tottime")
+    stats.print_stats(20)

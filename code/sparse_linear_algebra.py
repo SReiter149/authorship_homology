@@ -10,10 +10,11 @@ class Matrix:
     """
 
 
-    def __init__(self):
+    def __init__(self, verbose = False):
         self.building = True
         self.computing = False
         self.rref_flag = False
+        self.verbose = verbose
 
         self.nonzero_rows = []
         self.nonzero_columns = []
@@ -40,7 +41,7 @@ class Matrix:
                 try:
                     end_idx = self.row_starts[row_idx + 1]
                 except:
-                    end_idx = self.last_idx
+                    end_idx = len(self.nonzero_values)
 
                 for i in range(start_idx, end_idx):
                     return_string += f"({row_idx}, {self.nonzero_columns[i]}, {self.nonzero_values[i]}), "
@@ -62,9 +63,10 @@ class Matrix:
 
     def add_nonzero_value(self, row, column, value):
         assert self.building == True
-        self.nonzero_rows.append(row)
-        self.nonzero_columns.append(column)
-        self.nonzero_values.append(value)
+        if value != 0:
+            self.nonzero_rows.append(row)
+            self.nonzero_columns.append(column)
+            self.nonzero_values.append(value)
 
     def add_column(self, row_idxs, column_idx, values):
         for i in range(len(row_idxs)):
@@ -78,7 +80,6 @@ class Matrix:
 
         self.row_count = max(self.nonzero_rows) + 1
         self.column_count = max(self.nonzero_columns) + 1
-        self.last_idx = len(self.nonzero_values)
 
         matrix_tuples = sorted(list(set(list(zip(self.nonzero_rows, self.nonzero_columns, self.nonzero_values)))))
 
@@ -92,6 +93,36 @@ class Matrix:
         for row_number in range(1,len(self.nonzero_rows)):
             self.row_starts.extend([row_number] * (self.nonzero_rows[row_number] - self.nonzero_rows[row_number-1]))
         # pdb.set_trace()
+        self.first_nonzero = self.row_starts.copy()
+        if self.verbose:
+            print("conversion complete")
+
+    def get_first_nonzero(self,row_idx):
+        # constant time function
+        assert self.computing
+
+        nonzero_idx = self.first_nonzero[row_idx]
+        if nonzero_idx != None:
+            column_idx = self.nonzero_columns[nonzero_idx]
+            value = self.nonzero_values[nonzero_idx]
+        else:
+            column_idx = None
+            value = None
+        return value, column_idx
+    
+    def update_first_nonzero(self, row_idx):
+        # O(n) where n is the number of saved elements in the row
+        assert self.computing
+
+        current_idx = self.first_nonzero[row_idx]
+        _, end_idx = self.get_row_start_end(row_idx)
+
+        while self.nonzero_values[current_idx] == 0:
+            current_idx += 1
+            if current_idx >= end_idx:
+                current_idx = None
+                break
+        self.first_nonzero[row_idx] = current_idx
 
     def iterate_over_rows(self):
         for row_idx in range(len(self.row_starts)):
@@ -99,11 +130,12 @@ class Matrix:
             yield start_idx, end_idx
     
     def get_row_start_end(self, row_idx):
+        # O(1)
         start_idx = self.row_starts[row_idx]
-        try:
+        if row_idx + 1 < len(self.row_starts):
             end_idx = self.row_starts[row_idx + 1]
-        except:
-            end_idx = self.last_idx
+        else:
+            end_idx = len(self.nonzero_values)
         return start_idx, end_idx
 
     
@@ -143,10 +175,17 @@ class Matrix:
         row1_column_idxs, row1_values = self.get_row(row1_idx)
         row2_column_idxs, row2_values = self.get_row(row2_idx)
 
-        assert row1_column_idxs[0] == row2_column_idxs[0]
+        nonzero_value1, nonzero_column1 = self.get_first_nonzero(row1_idx)
+        nonzero_value2, nonzero_column2 = self.get_first_nonzero(row2_idx)
+        if self.verbose:
+            print(f'row 1 {row1_idx}: values: {row1_values}, columns: {row1_column_idxs}')
+            print(f'row 2 {row2_idx}: values: {row2_values}, columns: {row2_column_idxs}')
 
-        factor = (-1) * (row2_values[0] / row1_values[0])
+        assert nonzero_column1 == nonzero_column2
 
+        factor = (-1) * (nonzero_value2 / nonzero_value1)
+
+        # could be fancier w/ this
         row1_location = 0
         row2_location = 0
 
@@ -157,6 +196,7 @@ class Matrix:
             if row1_column_idxs[row1_location] == row2_column_idxs[row2_location]:
                 row2_values[row2_location] += factor * row1_values[row1_location]
                 row1_location += 1 
+                row2_location += 1
             elif row1_column_idxs[row1_location] < row2_column_idxs[row2_location]:
                 row1_location += 1
             
@@ -164,57 +204,83 @@ class Matrix:
                 row2_location += 1
 
         self.update_row(row2_idx, row2_values)
+        self.update_first_nonzero(row2_idx)
 
-        return all(value == 0 for value in row2_values)
+        if self.verbose:
+            print(f'row2 is now {row2_values}')
+        # pdb.set_trace()
+        return self.first_nonzero[row2_idx] == None
     
     def reduce_matrix(self):
         assert self.computing
 
-        unchecked_rows = [i for i in range(self.row_count)]
-        linearly_independent_rows_count = 0
+        unchecked_rows = [True for i in range(self.row_count)]
+        linearly_dependent_rows  = 0
         for column_idx in range(self.column_count):
+            rows = [i for i, val in enumerate(unchecked_rows) if val]
             i = 0
-            while i < len(unchecked_rows):
-                row1_columns, row1_values = self.get_row(unchecked_rows[i])
-                if not(bool(row1_columns)):
-                    unchecked_rows.pop(i)
-                elif row1_columns[0] == column_idx:
-                    row1_idx = unchecked_rows[i]
-                    unchecked_rows.pop(i)
-                    linearly_independent_rows_count += 1
+            while i < len(rows):
+                _, nonzero_column = self.get_first_nonzero(rows[i])
+                if nonzero_column == None:
+                    unchecked_rows[rows[i]] = False
+                    i += 1
+                elif nonzero_column == column_idx:
+                    row1_idx = rows[i]
+                    unchecked_rows[rows[i]] = False
+                    linearly_dependent_rows += 1
+                    i += 1
                     break  
                 else:
                     i += 1
             if 'row1_idx' in locals():
-                while i < len(unchecked_rows):
-                    row2_columns, row2_values = self.get_row(unchecked_rows[i])
+                while i < len(rows):
+
+                    _, nonzero_column = self.get_first_nonzero(rows[i])
                     zero_row = False
-                    if row2_columns[0] == column_idx:
-                        """
-                        wasted computation here cuz we have columns and values for both rows so fix later maybe
-                        """
-                        zero_row = self.reduce_rows(row1_idx, unchecked_rows[i])
-                    if zero_row:
-                        unchecked_rows.pop(i)
+                    if nonzero_column == None:
+                        unchecked_rows[rows[i]] = False
+                        i += 1
                     else:
+                        if nonzero_column == column_idx:
+                            zero_row = self.reduce_rows(row1_idx, rows[i])
+                        if zero_row:
+                            unchecked_rows[rows[i]] = False
                         i += 1
                 del row1_idx
-            if not bool(unchecked_rows):
+            if not any(unchecked_rows):
                 break
-        return linearly_independent_rows_count
+        return linearly_dependent_rows
     
     def dim_ker_im(self):
         assert self.computing
+
+        if self.verbose:
+            print(f"finding dim ker and im for matrix size: ({self.row_count}, {self.column_count})")
+            print(repr(self))
+
 
         dim_im = self.reduce_matrix()
         dim_ker = self.column_count - dim_im
         return dim_ker, dim_im
         
 if __name__ == "__main__":
-    try:
-        tests = [0,1]
+    import cProfile
+    import pstats
+    import numpy as np
 
+    def compare_numpy(Matrix):
+        assert Matrix.computing == True
+        numpy_Matrix = np.zeros((Matrix.row_count, Matrix.column_count))
+        for i in range(len(Matrix.nonzero_values)):
+            numpy_Matrix[Matrix.nonzero_rows[i], Matrix.nonzero_columns[i]] = Matrix.nonzero_values[i]
+        
+        return np.linalg.matrix_rank(numpy_Matrix) 
+
+
+    def test(tests):
         if 0 in tests:
+            print()
+            print("--- beginning test 0 ---")
             M = Matrix()
             M.add_column([0],2,[1])
             M.add_column([1,2],3,[1,1])
@@ -225,16 +291,93 @@ if __name__ == "__main__":
             print(repr(M))
 
         if 1 in tests:
-            M = Matrix()
+            print()
+            print("--- beginning test 1 ---")
+            M = Matrix(verbose = True)
             M.add_column([0,3],2,[1,1])
             M.add_column([1,2],3,[1,1])
             M.add_column([0,3],4,[1,1])          
             print(repr(M))
             M.convert()
             dim_ker, dim_im = M.dim_ker_im()
+            assert (dim_ker, dim_im) == (3,2)
             print(dim_ker, dim_im)
             print(repr(M))
-    
+        if 2 in tests: 
+            print()
+            print("--- beginning test 2 ---")
+            import numpy.random as rand
+            M = Matrix(verbose = True)
+            for i in range(10):
+                M.add_column([i], i, [1])      
+            print(repr(M))
+            M.convert()
+            dim_ker, dim_im = M.dim_ker_im()
+            assert dim_ker == 0
+            print(dim_ker, dim_im)
+            print(repr(M))
+
+        if 3 in tests:
+            print()
+            print("--- beginning test 3 ---")
+            import numpy.random as rand
+            M = Matrix(verbose = False)
+            for i in range(40):
+                col_idx = rand.randint(0,40,4)
+                M.add_column(col_idx, i, [1,-1,1,-1])  
+
+
+                
+            # print(repr(M))
+            M.convert()
+            compare_before = compare_numpy(M)
+            
+            dim_ker, dim_im = M.dim_ker_im()
+
+            compare_after = compare_numpy(M)
+
+            print(f'the dim_im I found {dim_im}')
+            print(f'compare before {compare_before}')
+            print(f'compare after {compare_after}')
+            # print(repr(M))
+        
+        if 4 in tests:
+            print()
+            print("--- beginning test 4 ---")
+            M = Matrix(verbose = True)
+            M.add_column([0,2],0,[1,1])
+            M.add_column([1,2],1,[1,-1])
+            M.add_column([0,1,3],2,[1,1,1])  
+            M.add_column([0,2],3,[1,1])   
+            M.add_column([3],4,[1]) 
+            print(repr(M))
+            M.convert()
+            dim_ker, dim_im = M.dim_ker_im()
+            assert (dim_ker, dim_im) == (1,4)
+            print(dim_ker, dim_im)
+            print(repr(M))
+
+        if 5 in tests:
+            print()
+            print("--- beginning test 5 ---")
+            M = Matrix(verbose = True)
+            M.add_column([0,1,2],0,[-1,1,-1])
+            M.add_column([1,3,4],1,[1,-1,-1])
+            print(repr(M))
+            M.convert()
+            dim_ker, dim_im = M.dim_ker_im()
+            assert (dim_ker, dim_im) == (0,2)
+            print(dim_ker, dim_im)
+            # print(repr(M))
+
+    try:
+        profiler = cProfile.Profile()
+        profiler.enable()
+        test([3])
+        profiler.disable()
+        stats = pstats.Stats(profiler).sort_stats("tottime")
+        # stats.print_stats(20)
+
     except Exception:
         print(traceback.format_exc())
         pdb.post_mortem()    

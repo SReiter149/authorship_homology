@@ -41,15 +41,19 @@ def format_papers(results):
         paper_dict[paper_name] = author_ids
     return paper_dict
 
-def write_results(paper_dictionary, file_path, start = True, end = True, verbose = False):    
+def write_results(paper_dictionary, folder_path, file_name, start = True, end = True, verbose = False):  
+    assert folder_path[-1] == "/"  
     if verbose:
-        print(f'writing results to {file_path}')
+        print(f'writing results to {folder_path}')
+
+    os.makedirs(folder_path, exist_ok = True)
+    full_path = f'{folder_path}{file_name}'
     
     if start:
-        f = open(file_path, 'w+')
+        f = open(full_path, 'w+')
         f.write('{')
     else:
-        f = open(file_path, "a+")
+        f = open(full_path, "a+")
     for key,value in paper_dictionary.items():
         if not start:
             f.write(', ')
@@ -69,11 +73,11 @@ def papers_by_author(seed_id = 'A5029009134', name = 'Kate_Meyer', folder_path =
     returns a dictionary with the paper name as key and authorIDs as values
     '''
     authors = [{seed_id},]
-    combined_file_path = f"{folder_path}{name}.json"
+    combined_name = f"{name}.json"
     for round_number in range(max_rounds):
         if verbose:
             print(f"---- beginning round {round_number} ----")
-        file_path = f"{folder_path}{name}_round{round_number}.json"
+        file_name = f"{name}_round{round_number}.json"
         start = True
         end = False
         this_round_authors = authors[-1].copy()
@@ -87,9 +91,9 @@ def papers_by_author(seed_id = 'A5029009134', name = 'Kate_Meyer', folder_path =
             for results in query(query_filter = f'author.id:{author_id}', verbose = verbose):
                 # pdb.set_trace()
                 paper_dictionary = format_papers(results)
-                write_results(paper_dictionary=paper_dictionary, file_path=file_path, start = start, end = end)
+                write_results(paper_dictionary=paper_dictionary, folder_path=folder_path, file_name=file_name, start = start, end = end)
 
-                write_results(paper_dictionary=paper_dictionary, file_path=combined_file_path, start = round_number == 0, end = (round_number == max_rounds-1 and end))
+                write_results(paper_dictionary=paper_dictionary, folder_path=folder_path, file_name=file_name, start = round_number == 0, end = (round_number == max_rounds-1 and end))
 
                 if round_number != max_rounds - 1:
                     for author_ids in paper_dictionary.values():
@@ -103,16 +107,18 @@ def papers_by_author(seed_id = 'A5029009134', name = 'Kate_Meyer', folder_path =
 
 
 
-# def papers_by_topic(self, query_url = None):
-#     # build the dataset
-#     if os.path.isfile(self.file_path) == False or os.stat(self.file_path).st_size == 0 or self.overwrite == True:
-#         if query_url != None:
-#             self.get_data(query_url)
+def papers_by_topic(query_filter = 'title.search:Choloepus', name = 'small_sloths', folder_path = f"../data/query_tests/",verbose = False):
+    # build the dataset
+    file_name = f'{name}.json'
+    for results in query(query_filter):
+        paper_dictionary = format_papers(results)
+        write_results(paper_dictionary=paper_dictionary, folder_path=folder_path, file_name=file_name,verbose=verbose)
 
 
 if __name__ == '__main__':
     try:
-        papers_by_author(verbose = True)
+        papers_by_topic()
+        # papers_by_author(verbose = True)
     except Exception:
         print(traceback.format_exc())
         pdb.post_mortem()

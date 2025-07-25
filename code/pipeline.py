@@ -10,8 +10,8 @@ from simplicial_complex import *
 
 
 class Pipeline:
-    def __init__(self, data_location = "../data", name = "temp", overwrite = False, verbose = False, results = False, save = False):
-        self.data_location = data_location
+    def __init__(self, folder_location = "../data/", name = "temp", overwrite = False, verbose = False, results = False, save = False):
+        self.data_location = folder_location
         self.name = name
         self.overwrite = overwrite
         self.dataset_location = f'{self.data_location}/{self.name}.json'
@@ -29,27 +29,47 @@ class Pipeline:
             if self.verbose or self.results:
                 print(f'dataset size: {len(dataset.keys())}')
 
-    def run_betti_analysis(self, dataset = None, max_bar_level = 1):
+    def run_betti_analysis(self, folder_location = None, name = None, dataset = None, max_bar_level = 1):
+        if folder_location == None:
+            folder_location = self.data_location
+        if name == None:
+            name = self.name
+
         if dataset == None:
             dataset = self.dataset
+        f = open(f'{folder_location}{name}_betti_results.txt', 'w+')
+
         for level, dataset in enumerate(self.raise_bar(max_bar_level)):
-            if dataset:
-                if self.verbose:
-                    print(f'Now beginning analysis of level {level}')         
-                complex = SimplicialComplex(top_cell_complex = dataset, data_location = self.data_location, name = f'{self.name}', level=level, verbose = self.verbose, results = self.results, save=self.save)
-                complex.run_betti()
+            if self.verbose:
+                print(f'Now beginning betti analysis of level {level}')         
+            complex = SimplicialComplex(top_cell_complex = dataset, data_location = self.data_location, name = f'{self.name}', level=level, verbose = self.verbose, results = self.results, save=self.save)
+            complex.run_betti()
+            f.write(f'level: {level}, betii_numbers: {complex.betti_numbers}')
+        
+        f.close()
 
-    def run_distance_analysis(self, colab1, colab2, dataset = None, width = None):
+    def run_distance_analysis(self, colab1, colab2, folder_location = None, name = None, dataset = None, max_width = 0, max_bar_level = 1):
+
         if dataset == None:
             dataset = self.dataset
 
+        if folder_location == None:
+            folder_location = self.data_location
+        if name == None:
+            name = self.name
 
-        complex = SimplicialComplex(top_cell_complex = dataset, data_location = self.data_location, name = f'{self.name}', verbose = self.verbose, results = self.results, save=self.save)
-        if width:
-            distance = complex.run_colab_distance(colab1, colab2, width = width)
-        else:
-            distance = complex.run_colab_distance(colab1, colab2)
-        return distance
+        f = open(f'{folder_location}{name}_distance_results.txt', 'w+')
+
+        for level, dataset in enumerate(self.raise_bar(max_bar_level)):
+            if self.verbose:
+                print(f'Now beginning distance analysis of level {level}') 
+            width = 0
+            distance = 0
+            complex = SimplicialComplex(top_cell_complex = dataset, data_location = self.data_location, name = f'{self.name}', verbose = self.verbose, results = self.results, save=self.save)
+            while width <= max_width and distance != -1:
+                distance = complex.run_colab_distance(colab1, colab2, width = width)
+                f.write(f"level: {level}, width: {width}, distance: {distance}")
+                width += 1
 
     def raise_bar(self, max_bar_level):
         # a list of dictionaries,
@@ -93,10 +113,11 @@ if __name__ == "__main__":
 
     # Kate Papers
     # papers_by_author(verbose = True)
-    pipeline = Pipeline(name = 'Kate_Meyer', data_location= '../data/people/', verbose=True, results=True, overwrite=True, save = True)
+
+    pipeline = Pipeline(name = 'Kate_Meyer', folder_location= '../data/people/', verbose=True, results=True, overwrite=True, save = True)
     pipeline.load_data()
-    pipeline.run_betti_analysis()
-    for level in range(10):
+    pipeline.run_betti_analysis(max_bar_level=1)
+    for level in range(1):
         graph.main(data_location=f'../data/people/', save_location=f'../data/people/', name= f'Kate_Meyer{level}', special_nodes={'A5029009134'})
 
     
@@ -109,9 +130,11 @@ if __name__ == "__main__":
     #     graph.main(f'../data/people/Jeremy_Reiter{level}_top_cell_complex.pkl',f'../data/people/Jeremy_Reiter{level}_graph.png')
 
     # small sloths
-    # pipeline = Pipeline(name = 'small_sloths', data_location= '../data/sloths', verbose=True, overwrite=False, save = True)
-    # pipeline.papers_by_topic(query_url='title.search:Choloepus')
-    # pipeline.main(max_bar_level=10)
+    # pipeline = Pipeline(name = 'small_sloths', folder_location= '../data/sloths/', verbose=True, overwrite=True, save = True)
+    # papers_by_topic(query_filter='title.search:Choloepus')
+    # pipeline.load_data()
+    # pipeline.run_betti_analysis(max_bar_level=10)
+    # pipeline.run_distance_analysis({'A5103447570'}, {'A5070985763'}, max_bar_level=5, max_width=5)
 
     # # big sloths
     # pipeline = Pipeline(name = 'big_sloths', data_location='../data/sloths', overwrite= False, verbose=False, results = True)
