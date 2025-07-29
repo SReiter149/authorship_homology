@@ -21,14 +21,15 @@ class SimplicialComplex:
     - constructing simplicial complexes 
     - calculating betti numbers
 
-    
-    - data_location (relative location of data)
-    - name (string)
-    - verbose (bool)
-    - save (bool)
-    - simplex (a set of vertices)
+    arguments:
     - top_cell_complex (a set of simplicies)
-    - maximum dimension (integer)
+    - data_location (path of data)
+    - name (string)
+    - level (int)
+    - verbose (bool)
+    - results (bool)
+    - save (bool)
+    
     '''
 
     def __init__(self, top_cell_complex, data_location = '../data', name = 'abstract_complex', level = None, verbose = False, results = False, save = False):
@@ -61,6 +62,19 @@ class SimplicialComplex:
         self.max_vertex_id = self.vertex_count
 
     def parse_user_top_cell(self, top_cell_complex):
+        """
+        builds the top_cell complex from the users top_cell_complex
+
+        arguments:
+        - top_cell_complex (user input): the user input top_cell complex. Can parse: 
+            - list of lists
+            - dictionary of lists
+            - dictionary of frozen sets
+            - frozen set of frozen sets
+
+        returns:
+        - None
+        """
         # parses top_cell_complex
         if isinstance(top_cell_complex, list):
             if isinstance(top_cell_complex[0], list):
@@ -92,6 +106,13 @@ class SimplicialComplex:
             raise ValueError('invalid input type')
 
     def transform_user_simplex(self, user_simplex):
+        """
+        arguments:
+        - user_simplex (iterable): the simplex with the users naming convention
+
+        returns:
+        - new_simplex (frozenset): the simplex with internal naming convention
+        """
         for vertex_name in user_simplex:
             if vertex_name not in self.user_vertex_dict.keys():
                 vertex_id = len(self.user_vertex_dict.keys())
@@ -104,11 +125,15 @@ class SimplicialComplex:
 
     def __repr__(self):
         '''
+        string object for developers
+
+        arguments:
+        - None
+
         returns:
             output (str): a string containing
                 - name
                 - max dimension
-                - top cell complex
                 - size of the k-skeletons (if calculated)
                 - dimension matrices (if calculated)
                 - betti numbers (if calculated)
@@ -148,6 +173,18 @@ class SimplicialComplex:
         return output[:-1]
 
     def __str__(self):
+        """
+        note:
+        - the user should rewrite this function for what they would find the most useful
+
+        arguments:
+        - None
+
+        returns:
+        - string object for the user
+            - simplex maps
+            - vertex maps
+        """
         str = ""
         try:
             str += f"simplex maps: {self.simplex_maps}\n"
@@ -160,7 +197,10 @@ class SimplicialComplex:
     # ----------SMALL FUNCTIONS----------
     def _add_simplex(self, simplex):
         """
-        helper function to add a simplex to the data structure. Assumes that all vertices already are in the simplex. Will give the next available id to the simplex. 
+        helper function to add a simplex to the complex. Will give the next available id to the simplex. 
+        
+        Warning:
+        - Assumes that all vertices in the given simplex already are in the complex. 
 
         arguments:
         - simplex (set of vertex ids): simplex to add
@@ -178,20 +218,28 @@ class SimplicialComplex:
         self.max_simplex_id += 1
 
     def _replace_vertex(self, add_vertex_id, remove_vertex_id):
-            # changes to the simplex_maps and vertex_maps
-            for simplex_id in self.vertex_maps[remove_vertex_id]:
-                self.simplex_maps[simplex_id] = (self.simplex_maps[simplex_id] - {remove_vertex_id}).union({add_vertex_id})
-            
-            # merging items in vertex_maps and vertex_dict
-            self.vertex_maps[add_vertex_id] = self.vertex_maps[add_vertex_id].union(self.vertex_maps[remove_vertex_id])
-            self.vertex_dict[add_vertex_id] = self.vertex_dict[add_vertex_id].union(self.vertex_dict[remove_vertex_id])
+        """
+        arguments:
+        - add_vertex_id (int): the vertex id for everything in the removed vertex to be added to
+        - remove_vertex_id (int): the vertex to remove
 
-            self.vertex_maps.pop(remove_vertex_id)
-            self.vertex_dict.pop(remove_vertex_id)
+        returns:
+        - None
+        """
+        # changes to the simplex_maps and vertex_maps
+        for simplex_id in self.vertex_maps[remove_vertex_id]:
+            self.simplex_maps[simplex_id] = (self.simplex_maps[simplex_id] - {remove_vertex_id}).union({add_vertex_id})
+        
+        # merging items in vertex_maps and vertex_dict
+        self.vertex_maps[add_vertex_id] = self.vertex_maps[add_vertex_id].union(self.vertex_maps[remove_vertex_id])
+        self.vertex_dict[add_vertex_id] = self.vertex_dict[add_vertex_id].union(self.vertex_dict[remove_vertex_id])
+
+        self.vertex_maps.pop(remove_vertex_id)
+        self.vertex_dict.pop(remove_vertex_id)
 
     def _remove_simplex(self, simplex_id):
         """
-        helper_function to remove a simplex from the data structure.
+        helper function to remove a simplex from the data structure.
 
         arguments:
         - simplex_id (int): the id of the simplex to remove
@@ -232,7 +280,15 @@ class SimplicialComplex:
         
     def _check_consistency(self):
         """
-        Ensure vertex_maps only references simplex IDs that exist in simplex_maps.
+        debug function that will raise errors
+
+        helper funcion to check that the vertex_maps and simplex_maps agree
+
+        arguments:
+        - None
+
+        returns:
+        - None
         """
 
         # ensures everything in the vertex_maps is in the simplex maps
@@ -260,38 +316,81 @@ class SimplicialComplex:
 
     # -----------SAVE THINGS----------
     def save_top_complex(self): 
+        """
+        saves the top_cell_compelx to a file
+        arguments:
+        - None
+
+        returns:
+        - None
+        """
         with open(f'{self.save_name}_top_cell_complex.pkl', 'wb') as f:
             pkl.dump(self.top_cell_complex, f)
 
-    def save_incidence_matrices(self):
-        with open(f'{self.save_name}_incidence_matrices.txt', 'w') as f:
-            f.write(f'transpose on import, rows are columns!\n')
-            for incidence_matrix in self.incidence_matrices:
-                for column_index in range(incidence_matrix.shape[1]):
-                    column = incidence_matrix[:, column_index]
-                    for x in column:
-                        f.write(f'{x} ')
-                    f.write(f'\n')
-                f.write(f"\n")
-
     def save_reduced_complex(self):
+        """
+        saves the reduced complex 
+
+        arguments:
+        - None
+
+        returns:
+        - None
+        """
         with open(f'{self.save_name}_reduced_complex.pkl', 'wb') as f:
             pkl.dump(self.abstract_complex, f)
 
     def save_vertex_dict(self):
+        """
+        saves the vertex dictionary to a file 
+
+        arguments:
+        - None
+
+        returns:
+        - None
+        """
         with open(f'{self.save_name}_vertex_dict.pkl', 'wb') as f:
             pkl.dump(self.vertex_dict, f)
 
     def save_simplex_maps(self):
+        """
+        saves the simplex maps to a file
+
+        arguments:
+        - None
+
+        returns:
+        - None
+        """
+
         with open(f'{self.save_name}_simplex_maps.pkl', 'wb') as f:
             pkl.dump(self.simplex_maps, f)
 
     def save_betti_numbers(self):
+        """
+        saves the betti numbers to a file
+
+        arguments:
+        - None
+
+        returns:
+        - None
+        """
         with open(f'{self.save_name}_betti_numbers.txt', 'w') as f:
             f.write(str(self.betti_numbers))
             f.close()
 
-    def write_results(self):
+    def write_betti_results(self):
+        """
+        writes all the results from the whole betti number computation to the given location
+
+        arguments:
+        - None
+
+        returns:
+        - None
+        """
         with open(f'{self.save_name}_results.txt', 'a') as f:
             
             f.write(f'\nfor level {self.level}:\n')
@@ -612,12 +711,20 @@ class SimplicialComplex:
         calculates betti numbers using the dimension matrices
         there will be the same number of betti numbers as the max dimension in the simplicial complex
         saves the betti numbers as a list
+        arguments:
+        - sparse (bool): whether the incidence matrix is sparse or dense
+
+        returns:
+        - None
         '''
         if self.complex_dimension > 1:
             betti_numbers = []
             dim_kers = []
             dim_ims = []
             if sparse:
+                """
+                this part is done with my own sparse linear algebra package. Is likely a large source of slow down
+                """
                 for i, matrix in enumerate(self.sparse_incidence_matrices):
                     if matrix.shape() != (0,0):
                         dim_ker, dim_im = matrix.dim_ker_im()
@@ -635,7 +742,7 @@ class SimplicialComplex:
                         dim_im = np.linalg.matrix_rank(matrix)
                         dim_ker = matrix.shape[1] - dim_im
                         """
-                        Here is my attempt to do all the linear algebra by myself. Was a cool project but turned out to be several times slower than the state of the art
+                        Here is my attempt to do all the dense linear algebra by myself. Was a cool project but turned out to be several times slower than the state of the art
                         """
                         # dim_ker, dim_im = la.calc_dim_ker_im(matrix)
                         # try:
@@ -673,6 +780,25 @@ class SimplicialComplex:
                 print(f"there are only single independent nodes, so the betti number is {self.betti_numbers[0]}")
     
     def find_colab_distance(self, colab1, colab2, width = 0):
+        """
+        finds the distance measure between the two sets of colaborations through the given width
+        uses the star operation to make sure that the inersection at each step in the path is atleast dimension width
+
+        note:
+        - probably can optimize by searching from both sides, and halting as soon as a path is found
+        - by going out in rings you can assure that you halt at the smallest distance
+
+        note:
+        - returns -1 if no path is found
+
+        arguments:
+        - colab1 (set of ints): the ids of the authors in the first colaboration
+        - colab2 (set of ints): the ids of the authors in the second colaboration
+        - width (int): the width of the path
+
+        returns:
+        - distance (int): the distance between the two colaborations
+        """
 
         colab1 = self.transform_user_simplex(colab1)
         colab2 = self.transform_user_simplex(colab2)
@@ -748,10 +874,17 @@ class SimplicialComplex:
         for idx, betti_num in enumerate(self.betti_numbers):
             betti_sum += betti_num * ((-1) ** idx)
         self.betti_sum = betti_sum
-
-    # ----------UNTESTED----------
     
     def build_perseus_simplex(self):
+        """
+        build the perseus simplex for comparing to the perseus package
+
+        arguments:
+        - None
+
+        returns:
+        - None
+        """
         with open(f'{self.save_name}_perseus.txt', 'w+') as f:
             f.write(f'1 \n')
             for simplex in self.simplex_maps.values():
@@ -763,7 +896,19 @@ class SimplicialComplex:
         print(f'perseus location: {f"{self.save_name}_perseus.txt"}')
 
     # ----------RUN THIS----------
-    def run_colab_distance(self,colab1, colab2, width = None, save = None, verbose = None, results = None):
+    def run_colab_distance(self,colab1, colab2, width = None):
+        """
+        the callable function to find distance between colaborations
+
+        arguments:
+        - colab1 (set of ints): the ids of the authors in the first colaboration
+        - colab2 (set of ints): the ids of the authors in the second colaboration
+        - width (int): the width of the path
+
+        returns:
+        - distance (int): the distance between the two colaborations
+
+        """
         self.build_vertex_simplex_maps()
         if width:
             distance = self.find_colab_distance(colab1, colab2, width)
@@ -814,17 +959,16 @@ class SimplicialComplex:
 
         if self.save:
             self.save_top_complex()
-            if sparse:
-                pass
-            else:
-                self.save_incidence_matrices()
             self.save_reduced_complex()
             self.save_vertex_dict()
             self.save_simplex_maps()
             self.save_betti_numbers()
-            self.write_results()
+            self.write_betti_results()
 
 if __name__ == '__main__':
+    """
+    my random testing functions, feel free to use
+    """
     def test(top_cell_complex, answer, name,sparse = True, colab1 = False, colab2 = False, width = 0, *args, **kwargs):
         try:
             data_location='../data/simplex_tests/'

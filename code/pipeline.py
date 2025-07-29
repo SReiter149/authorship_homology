@@ -10,6 +10,18 @@ from simplicial_complex import *
 
 
 class Pipeline:
+    """
+    pipeline class to run the whole simplicial pipeline from pulling data from openAlex to building and running the simplicial complex
+
+    arguments:
+    - folder_location (path): location to the folder where data is saved and pulled from
+    - name (string): name of base name for save and data files
+    - overwrite (bool): whether to overwrite the current files
+    - verbose (bool): whether to print updates on progress
+    - results (bool): whwether to print results
+    - save (bool): whether to save results and data to files
+    """
+
     def __init__(self, folder_location = "../data/", name = "temp", overwrite = False, verbose = False, results = False, save = False):
         self.data_location = folder_location
         self.name = name
@@ -21,6 +33,13 @@ class Pipeline:
 
 
     def load_data(self, dataset_location = None):
+        """
+        arguments:
+        - dataset_location (path): location of the dataset, if none uses the class dataset by default
+
+        returns:
+        - None
+        """
         if dataset_location == None:
             dataset_location = self.dataset_location
         with open(dataset_location, 'r') as f:
@@ -30,6 +49,18 @@ class Pipeline:
                 print(f'dataset size: {len(dataset.keys())}')
 
     def run_betti_analysis(self, folder_location = None, name = None, dataset = None, max_bar_level = 1):
+        """
+        runs the betti analysis on the given data
+
+        arguments:
+        - folder_location (path): the place where the folder for the save files is
+        - name (string): base name for save files
+        - dataset (file path): location of the dataset to run on, by default will look in class folder_location
+        - max_bar_level (int): the bar to raise up to for the filtering process
+
+        returns:
+        - None
+        """
         if folder_location == None:
             folder_location = self.data_location
         if name == None:
@@ -49,6 +80,22 @@ class Pipeline:
         f.close()
 
     def run_distance_analysis(self, colab1, colab2, folder_location = None, name = None, dataset = None, max_width = 0, max_bar_level = 1):
+        """
+        runs a distance analysis on two colaborations. Has two dials for stability width and bar level 
+
+
+        arguments:
+        - colab1 (set): the set of user_labels to check distance with
+        - colab2 (set): the set of user_labels to check distance with
+        - folder_location (path): the place where the folder for the save files is
+        - name (string): base name for save files
+        - dataset (file path): location of the dataset to run on, by default will look in class folder_location
+        - max_width (int): the maximum width to check for paths
+        - max_bar_level (int): the bar to raise up to for the filtering process
+
+        returns:
+        - None
+        """
 
         if dataset == None:
             dataset = self.dataset
@@ -72,6 +119,15 @@ class Pipeline:
                 width += 1
 
     def raise_bar(self, max_bar_level):
+        """
+        raises the bar and yields the datasets
+
+        arguments:
+        - max_bar_level (int): the maximum bar level to yield
+
+        yields:
+        - dataset (frozenset of frozensets): the top cell complex at the given level
+        """
         # a list of dictionaries,
         # (set of colaborators : set of papers)
         levels = [dict() for i in range(max_bar_level)]

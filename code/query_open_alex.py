@@ -6,6 +6,14 @@ import os
 import traceback
 
 def query(query_filter, verbose = False):
+    """
+    arguments:
+    - query_filer (str): query filter in the form that openAlex wants
+    - verbose (bool):  whether to print updates
+
+    yields:
+    - results (dictionary): dictionaries 1000 papers at a time to handle as to not overload memory
+    """
     cursor = '*'
     results = []
     page = 1
@@ -28,6 +36,13 @@ def query(query_filter, verbose = False):
     yield results
 
 def format_papers(results):
+    """
+    arguments:
+    - results (dictionary): dictionary in the format openAlex spits out
+
+    returns:
+    - paper_dict (dictionary): dictionary in the style I use
+    """
     paper_dict = {}
     for paper in results:
         author_ids = []
@@ -41,7 +56,21 @@ def format_papers(results):
         paper_dict[paper_name] = author_ids
     return paper_dict
 
-def write_results(paper_dictionary, folder_path, file_name, start = True, end = True, verbose = False):  
+def write_results(paper_dictionary, folder_path, file_name, start = True, end = True, verbose = False):
+    """
+    writes the results to the file
+
+    arguments:
+    - paper_dictionary (dictionary): the dictionary to write to the file
+    - folder_path (path): path of the folder to save the files in 
+    - file_name (str): the base name of the file to save in
+    - start (bool): whether this is the first time writing in this file
+    - end (bool): whether this is the last time writing in this file
+    - verbose (bool): whether to print updates
+
+    returns:
+    - None
+    """  
     assert folder_path[-1] == "/"  
     if verbose:
         print(f'writing results to {folder_path}')
@@ -67,10 +96,17 @@ def write_results(paper_dictionary, folder_path, file_name, start = True, end = 
         f.write('}')     
     f.close()
 
-def papers_by_author(seed_id = 'A5029009134', name = 'Kate_Meyer', folder_path = f"../data/people/", max_rounds = 2, write_rounds = 0, verbose = False):
+def papers_by_author(seed_id = 'A5029009134', name = 'Kate_Meyer', folder_path = f"../data/people/", max_rounds = 2, verbose = False):
     '''
-    starts with a seed ID and gets all papers and their co-authors, then all co-author's co-aturhos.
-    returns a dictionary with the paper name as key and authorIDs as values
+    starts with a seed ID and gets all papers and their co-authors, then all co-author's co-authors and so on for max_rounds times. 
+    arguments:
+    - seed_id (str): the openAlex ID for the seed author
+    - name (str): name of the author to save files with
+    - folder_path (path): the path of the folder to sasve files in 
+    - verbose (bool): whether to print updates
+
+    returns: 
+    - dataset (dictionary): keys = paper_name, values = author_ids
     '''
     authors = [{seed_id},]
     combined_name = f"{name}.json"
@@ -107,7 +143,20 @@ def papers_by_author(seed_id = 'A5029009134', name = 'Kate_Meyer', folder_path =
 
 
 
-def papers_by_topic(query_filter = 'title.search:Choloepus', name = 'small_sloths', folder_path = f"../data/query_tests/",verbose = False):
+def papers_by_topic(query_filter = 'title.search:Choloepus', folder_path = f"../data/query_tests/", name = 'small_sloths',verbose = False):
+    """
+    note:
+    - the basic search is 'title.search:' and just checks to see if the following string is in the title of the papers
+
+    arguments:
+    - query_filter (string): the filter by which to search the openAlex API with.
+    - name (string): name of the base name to save by 
+    - folder_path (path): path to the folder to save in
+    - verbose (bool): whether to print occasional updates 
+
+    returns:
+    - None
+    """
     # build the dataset
     file_name = f'{name}.json'
     for results in query(query_filter):
@@ -116,6 +165,9 @@ def papers_by_topic(query_filter = 'title.search:Choloepus', name = 'small_sloth
 
 
 if __name__ == '__main__':
+    """
+    my random test functions
+    """
     try:
         papers_by_topic()
         # papers_by_author(verbose = True)
@@ -128,104 +180,3 @@ if __name__ == '__main__':
     # for results in output:
     #     paper_dict = format_papers(results)
 
-
-# Old code: 
-
-
-# def getWorks(authorID):
-#     '''
-#     This function has no return statement but can easily be formatted to return all the papers or co-authors for a particular author
-#     '''
-#     works = f'https://api.openalex.org/works?filter='
-#     r = requests.get(url = works)
-#     data = r.json()
-#     # pdb.set_trace()
-#     papers = dict()
-#     for paper in range(len(data['results'])):
-#         authorIDs = []
-#         for author in range(len(data['results'][paper]['authorships'])):
-#             authorIDs.append(data['results'][paper]['authorships'][author]['author']['id'].split("/")[-1])
-#         # pdb.set_trace()
-#         papers[data['results'][paper]['title']] = authorIDs
-#     return papers
-"""
-# Carleton = "https://api.openalex.org/institutions?search=Carleton%20College"
-# topics = 'https://api.openalex.org/topics'
-# math = 'https://api.openalex.org/topics?filter=display_name.search:math&per_page=100'
-# concepts = 'https://api.openalex.org/topics?search=Mathematics'
-# author = 'https://api.openalex.org/authors?search=Kate%20Meyer'
-
-# r = requests.get(url = author)
-
-# data = r.json()
-# for i in range(len(data['results'])):
-#     print(data['results'][i]['display_name'])
-# pdb.set_trace()
-
-def findPaper():
-    paper = 'https://api.openalex.org/works?filter=doi:10.1086/724383'
-    r = requests.get(url = paper)
-    data = r.json()
-    for i in range(len(data['results'][0]['authorships'])):
-        authorName = data['results'][0]['authorships'][i]['author']['display_name']
-        authorID = data['results'][0]['authorships'][i]['author']['id']
-        print(authorName, authorID)
-    return data
-
-def findKate():
-    author = 'https://api.openalex.org/authors/A5029009134'
-    r = requests.get(url = author)
-    data = r.json()
-    
-    # for i in range(len(data['results'])):
-    #     string = ""
-    #     string += data['results'][i]['display_name']
-    #     for j in range(len(data['results'][i]['topics'])):
-    #         string += ", "
-    #         string += data['results'][i]['topics'][j]['display_name']
-    #     print(string)
-    #     print()
-    return data
-
-
-
-def getWorksFromJournal():
-    papers = {}
-    for page in range(1,3):
-        try:
-            query = f"https://api.openalex.org/works?filter=locations.source.id:S2764899347,publication_year:2020&select=id,title,authorships&per_page=200&page={page}"
-            r = requests.get(url = query)
-            data = r.json()
-            # pdb.set_trace()
-            for paper in data['results']:
-                # pdb.set_trace()
-                authorIDs = []
-                for author in paper['authorships']:
-                    authorIDs.append(author['author']['id'].split("/")[-1])
-                    # print("here")
-                papers[paper['title']] = authorIDs
-            time.sleep(1)
-        except:
-            break
-    return papers
-
-def generateData(seedID = 'A5029009134'):
-    '''
-    starts with a seed ID and gets all papers and their co-authors, then all co-author's co-aturhos.
-    returns a dictionary with the paper name as key and authorIDs as values
-    '''
-    papersRound1 = getWorks(seedID)
-    papersRound2 = {}
-    for authorIDs in papersRound1.values():
-        for authorID in authorIDs:
-            papersRound2 = getWorks(authorID) | papersRound2
-    papersCombined = papersRound2 | papersRound1
-    # pdb.set_trace()
-    with open('round1.json', 'w') as f:
-        json.dump(papersRound1, f)
-    with open('round2.json', 'w') as f:
-        json.dump(papersRound2, f)
-    with open('papers.json', 'w') as f:
-        json.dump(papersCombined, f)
-
-"""

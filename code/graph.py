@@ -16,6 +16,10 @@ def build_graph(top_cell_complex, vertex_dict, special_nodes = set()):
     - graph (nx.Graph object): the graph
     '''
     graph = nx.Graph()
+
+    """
+    these variables are flexible and should be adjusted to get the ideal layout and design
+    """
     node_color = 'blue'
     speical_color = 'red'
     edge_color = 'lightblue'
@@ -37,6 +41,17 @@ def build_graph(top_cell_complex, vertex_dict, special_nodes = set()):
     return graph
 
 def draw_graph(graph, top_cell_complex, save_location):
+    """
+    notes: 
+    adds the color patches in this function
+
+    arguments:
+    - top_cell_complex (frozenset of frozensets): the top cell complex of the simplicial complex to draw
+    - save_location (file path): path to the file for where to save the picture
+
+    returns:
+    - None
+    """
     graph.add_node(-1, color = 'grey', size = 0, node_weight = 0.5)
     pos = nx.spring_layout(graph, weight='weight', k = 10/len(top_cell_complex.values()), iterations=20) 
 
@@ -55,6 +70,16 @@ def draw_graph(graph, top_cell_complex, save_location):
     plt.savefig(save_location, dpi = 1000)
 
 def main(data_location, save_location, name, special_nodes = set()):
+    """
+    arguments:
+    - data_location (path): path to the location of the simplicial complex is saved
+    - save_location (path): path to the location where the graphs should be saved
+    - name (string): base name for the graph
+    - special_nodes (set) (optional): the set of user_ids for which the graph should have an interesting color
+
+    returns:
+    - None
+    """
     top_cell_location = f'{data_location}{name}_simplex_maps.pkl'
     save_location = f'{save_location}{name}_graph.png'
     vertex_dict_location = f'{data_location}{name}_vertex_dict.pkl'
