@@ -9,7 +9,7 @@ from itertools import combinations
 import pdb
 import numpy as np 
 import linear_algebra as la
-import sparse_linear_algebra as sla
+import sparse_2 as sla
 
 import pickle as pkl
 import traceback
@@ -241,8 +241,8 @@ class SimplicialComplex:
                 if vertex_id not in self.simplex_maps[simplex_id]:
                     print()
                     print(f"Inconsistency detected: vertex {vertex_id} references simplex {simplex_id} but not the other way")
-                    print(f'simplex maps: {self.simplex_maps}')
-                    print(f'vertex maps: {self.vertex_maps}')
+                    # print(f'simplex maps: {self.simplex_maps}')
+                    # print(f'vertex maps: {self.vertex_maps}')
                     raise AssertionError(f"Inconsistency detected: vertex {vertex_id} references simplex {simplex_id} but not the other way")
 
         # ensures everything in the simplex_maps is in the vertex_maps     
@@ -521,7 +521,7 @@ class SimplicialComplex:
         - none
         """
         if self.verbose:
-            print(f"before strong collapse\n {self}")
+            print(f"before strong collapse\n {repr(self)}")
 
         # setting up queues
         vertex_queue = [vertex_id for vertex_id in self.vertex_maps.keys()]
@@ -582,7 +582,7 @@ class SimplicialComplex:
         - none
         """
         if self.verbose:
-            print(f'before edge contractions \n{self}')
+            print(f'before edge contractions \n{repr(self)}')
         current_simplex_id = 0
         while current_simplex_id <= self.max_simplex_id:
             if current_simplex_id in self.simplex_maps.keys():
@@ -605,7 +605,7 @@ class SimplicialComplex:
                                     vertex2_options.remove(vertex1_id)
             current_simplex_id += 1
         if self.verbose:
-            print(f"after edge contractions\n{self}")
+            print(f"after edge contractions {repr(self)}")
     
     def calculate_betti_numbers(self, sparse = True):
         '''

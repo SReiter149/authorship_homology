@@ -2,6 +2,8 @@ import numpy as np
 
 import pdb
 import traceback
+from linear_algebra import calc_dim_ker_im as old_method
+
 
 class Matrix:
     """
@@ -33,26 +35,12 @@ class Matrix:
         elif self.computing:
             return_string += f"currently in computing mode\n"
 
-            return_string += f"values are (row, column, value): \n"
+            for row_idx, row in self.Matrix.items():
+                return_string += f'row {row_idx}: {row}\n'
 
-            for row_idx in range(len(self.row_starts)):
-                start_idx = self.row_starts[row_idx]
-                try:
-                    end_idx = self.row_starts[row_idx + 1]
-                except:
-                    end_idx = len(self.nonzero_values)
-
-                for i in range(start_idx, end_idx):
-                    return_string += f"({row_idx}, {self.nonzero_columns[i]}, {self.nonzero_values[i]}), "
-
+        return_string += f'\n'
         return return_string
     
-    def _check_consistency(self):
-        if self.building:
-            assert len(self.nonzero_columns) == len(self.nonzero_rows) == len(self.nonzero_values)
-        
-        elif self.computing:
-            assert len(self.nonzero_columns) == len(self.nonzero_values)
 
     def shape(self):
         if self.building == True:
@@ -82,152 +70,124 @@ class Matrix:
         self.row_count = max(self.nonzero_rows) + 1
         self.column_count = max(self.nonzero_columns) + 1
 
-        matrix_tuples = sorted(list(zip(self.nonzero_rows, self.nonzero_columns, self.nonzero_values)))
+        self.Matrix = {i:[] for i in range(self.row_count)}
 
-        self.nonzero_rows, self.nonzero_columns, self.nonzero_values = list(zip(*matrix_tuples))
+        for i in range(len(self.nonzero_rows)):
+            self.Matrix[self.nonzero_rows[i]].append([self.nonzero_columns[i], self.nonzero_values[i]])
 
-        self.nonzero_rows = list(self.nonzero_rows)
-        self.nonzero_columns = list(self.nonzero_columns)
-        self.nonzero_values = list(self.nonzero_values)
+        for row in self.Matrix.values():
+            if not bool(row):
+                row.append([-1,None])
+            else:
+                row = sorted(row)
 
-        self.row_starts = [0 for _ in range(self.nonzero_rows[0] + 1)]
-        for row_number in range(1,len(self.nonzero_rows)):
-            self.row_starts.extend([row_number] * (self.nonzero_rows[row_number] - self.nonzero_rows[row_number-1]))
         if self.verbose:
             print("conversion complete")
 
     def get_first_nonzero_column(self,row_idx):
         # constant time function
+        assert self.computing
+        return self.Matrix[row_idx][0][0]
+        
+    def update_row(self, row_idx, column_idxs, values):
         if self.computing:
-            start_idx, end_idx = self.get_row_start_end(row_idx)
-            if start_idx == end_idx:
-                return None
-            column_idx = self.nonzero_columns[start_idx]
-            return column_idx
-        else:
-            raise BrokenPipeError("You shouldn't be able to get here")
-    
-    # def update_first_nonzero(self, row_idx):
-    #     # O(n) where n is the number of saved elements in the row
-    #     assert self.computing
+            self.Matrix[row_idx] = list(zip(column_idxs, values))
 
-    #     current_idx = self.first_nonzero[row_idx]
-    #     _, end_idx = self.get_row_start_end(row_idx)
-
-    #     while self.nonzero_values[current_idx] == 0:
-    #         current_idx += 1
-    #         if current_idx >= end_idx:
-    #             current_idx = None
-    #             break
-    #     self.first_nonzero[row_idx] = current_idx
-
-    def iterate_over_rows(self):
-        for row_idx in range(len(self.row_starts)):
-            start_idx, end_idx = self.get_row_start_end(row_idx)
-            yield start_idx, end_idx
-    
-    def get_row_start_end(self, row_idx):
-        # O(1)
-        start_idx = self.row_starts[row_idx]
-        if row_idx + 1 < len(self.row_starts):
-            end_idx = self.row_starts[row_idx + 1]
-        else:
-            end_idx = len(self.nonzero_values)
-        return start_idx, end_idx
-
-    
-    def get_row(self, row_idx):
-        """
-        will return column_idx and values
-        """
-        if self.computing:
-            start_idx, end_idx = self.get_row_start_end(row_idx)
-            
-            column_idxs = self.nonzero_columns[start_idx: end_idx]
-            row_values = self.nonzero_values[start_idx: end_idx]
-            return column_idxs, row_values
         elif self.building:
             raise NotImplementedError("Hasn't been built yet")
         else:
             raise BrokenPipeError("You shouldn't be able to get here")
         
-    def update_row(self, row_idx, values, column_idxs):
-        if self.computing:
-            start_idx, end_idx = self.get_row_start_end(row_idx)
+    def merge_rows(self, row1, row2, check = True):
+        """
+        row1 can have 0 values
+        row2 should not have 0 values
+        """
+        merged_row = []
 
-            # pdb.set_trace()
-            change = len(values) - (end_idx - start_idx)
-            if change == 0:
-                self.nonzero_values[start_idx:end_idx] = values
-                self.nonzero_columns[start_idx:end_idx] = column_idxs
+        row1_idx = 0
+        row2_idx = 0
+
+        while True:
+            if row1[row1_idx][0] < row2[row2_idx][0]:
+                if row1[row1_idx][1] != 0:
+                    merged_row.append(row1[row1_idx])
+                row1_idx += 1
+                if row1_idx == len(row1):
+                    for i in range(row2_idx, len(row2)):
+                        merged_row.append(row2[i])
+                    return merged_row           
             else:
-                self.nonzero_values = self.nonzero_values[: start_idx] + values + self.nonzero_values[end_idx:]
-                self.nonzero_columns = self.nonzero_columns[: start_idx] + column_idxs + self.nonzero_columns[end_idx : ]
-                self.row_starts[row_idx + 1 : ] = [x + change for x in self.row_starts[row_idx + 1:]]
-
-        elif self.building:
-            raise NotImplementedError("Hasn't been built yet")
-        else:
-            raise BrokenPipeError("You shouldn't be able to get here")
+                merged_row.append(row2[row2_idx])
+                row2_idx += 1
+                if row2_idx == len(row2):
+                    for i in range(row1_idx, len(row1)):
+                        merged_row.append(row1[i])
+                    return merged_row
+                
 
     def reduce_rows(self,row1_idx, row2_idx):
         """
         will reduce row1 into row2
         returns whether the row is all zero after
         """
-        row1_column_idxs, row1_values = self.get_row(row1_idx)
-        row2_column_idxs, row2_values = self.get_row(row2_idx)
+        row1 = self.Matrix[row1_idx]
+        row2 = self.Matrix[row2_idx]
+        # row1_column_idxs, row1_values = self.get_row(row1_idx)
+        # row2_column_idxs, row2_values = self.get_row(row2_idx)
 
-        if self.verbose:
-            print(f'row 1 {row1_idx}: values: {row1_values}, columns: {row1_column_idxs}')
-            print(f'row 2 {row2_idx}: values: {row2_values}, columns: {row2_column_idxs}')
+        # if self.verbose:
+        #     print(f'row 1 {row1_idx}: {row1}')
+        #     print(f'row 2 {row2_idx}: {row2}')
 
-        assert row1_column_idxs[0] == row2_column_idxs[0]
+        assert row1[0][0] == row2[0][0]
 
-        factor = (-1) * (row2_values[0] / row1_values[0])
+        factor = (-1) * (row2[0][1] / row1[0][1])
 
-        row1_location = 0
-        row2_location = 0
+        row1_location = 1
+        row2_location = 1
 
-        while (row1_location < len(row1_values)) and (row2_location < len(row2_values)):
-            if row1_column_idxs[row1_location] == row2_column_idxs[row2_location]:
-                row2_values[row2_location] += factor * row1_values[row1_location]
-                row1_location += 1 
+        row2[0][1] = 0
+        merge_row = []
+
+        while (row1_location < len(row1)) and (row2_location < len(row2)):
+            if row1[row1_location][0] == row2[row2_location][0]:
+                value = row2[row2_location][1] + factor * row1[row1_location][1]
+                if abs(value) > self.tolerance:
+                    row2[row2_location][1] = value  
+                else:
+                    row2[row2_location][1] = 0
                 row2_location += 1
-            elif row1_column_idxs[row1_location] < row2_column_idxs[row2_location]:
-                row2_values.append(factor * row1_values[row1_location])
-                row2_column_idxs.append(row1_column_idxs[row1_location])
+                row1_location += 1 
+            elif row1[row1_location][0] < row2[row2_location][0]:
+                value = factor * row1[row1_location][1]
+                if abs(value) > self.tolerance:
+                    merge_row.append([row1[row1_location][0], value])
                 row1_location += 1    
             else:
                 row2_location += 1
 
-        while (row1_location < len(row1_values)):
-            row2_values.append(factor * row1_values[row1_location])
-            row2_column_idxs.append(row1_column_idxs[row1_location])
-            row1_location += 1
+        # experiment here
+        if bool(merge_row):
+            row2 = self.merge_rows(row2[1:], merge_row)
+        else:
+            row2 = [entry for entry in row2 if entry[1] != 0]
+
+        for i in range(row1_location, len(row1)):
+            value = factor * row1[i][1]
+            if abs(value) > self.tolerance:
+                row2.append([row1[i][0], value])
+            i += 1 
 
 
-        row_tuples = sorted(list(zip(row2_column_idxs, row2_values)))
-        row_tuples = [row_tuple for row_tuple in row_tuples if abs(row_tuple[1]) > self.tolerance ]
 
-        if row_tuples == []:
-            self.update_row(row2_idx, [], [])
-            if self.verbose:
-                print(f'row 2 (updated) {row2_idx}: values: {[]}, columns: {[]}')
-            return True
-
-
-        row2_column_idxs, row2_values = list(zip(*row_tuples))
-
-        row2_column_idxs = list(row2_column_idxs)
-        row2_values = list(row2_values)
-        
-        self.update_row(row2_idx, row2_values, row2_column_idxs)
+        self.Matrix[row2_idx] = row2
 
         if self.verbose:
-            print(f'row 2 (updated) {row2_idx}: values: {row2_values}, columns: {row2_column_idxs}')
-        # pdb.set_trace()
-        return False
+            pass
+            # print(f'row2 is now {row2}')
+
+        return row2 == []
     
     def reduce_matrix(self):
         assert self.computing
@@ -236,8 +196,9 @@ class Matrix:
         linearly_dependent_rows  = 0
         for column_idx in range(self.column_count):
             rows = [i for i, val in enumerate(unchecked_rows) if val]
+            rows_to_check = len(rows)
             i = 0
-            while i < len(rows):
+            while i < rows_to_check:
                 nonzero_column = self.get_first_nonzero_column(rows[i])
                 # if nonzero_column == None:
                 #     unchecked_rows[rows[i]] = False
@@ -250,7 +211,7 @@ class Matrix:
                 else:
                     i += 1
             if 'row1_idx' in locals():
-                while i < len(rows):
+                while i < rows_to_check:
 
                     nonzero_column = self.get_first_nonzero_column(rows[i])
                     zero_row = False
@@ -272,20 +233,27 @@ class Matrix:
     def count_pivots(self):
         pivot_columns = set()
 
-        for i in self.row_starts:
-            if i >= len(self.nonzero_columns):
-                break
-            column_idx = self.nonzero_columns[i]
-            pivot_columns.add(column_idx)
-        # pdb.set_trace()
+        for row in self.Matrix.values():
+            if bool(row):
+                pivot_columns.add(row[0][0])
+        if -1 in pivot_columns:
+            pivot_columns.remove(-1)
         return len(pivot_columns)
+
+    def get_sorted_values(self):
+        values = []
+        for row in self.Matrix:
+            for element in row:
+                values.append(element[1])
+        return sorted(values).reverse()
+
     
     def dim_ker_im(self):
         assert self.computing
 
         if self.verbose:
             print(f"finding dim ker and im for matrix size: ({self.row_count}, {self.column_count})")
-            print(repr(self))
+            # print(repr(self))
 
 
         self.reduce_matrix()
@@ -300,14 +268,16 @@ if __name__ == "__main__":
     import pstats
     import numpy as np
 
-    def compare_numpy(Matrix):
-        assert Matrix.computing == True
-        row_count, column_count = Matrix.shape()
+    def compare_methods(M):
+        assert M.computing == True
+        row_count, column_count = M.shape()
         numpy_Matrix = np.zeros((row_count, column_count))
-        for row_idx in range(row_count):
-            start_idx, end_idx = Matrix.get_row_start_end(row_idx)
-            for i in range(start_idx, end_idx):
-                numpy_Matrix[row_idx, Matrix.nonzero_columns[i]] = Matrix.nonzero_values[i]
+        for row_idx, row_values in M.Matrix.items():
+            for entry in row_values:
+                if entry[1] != None:
+                    numpy_Matrix[row_idx, entry[0]] = entry[1]
+        # pdb.set_trace()
+        # _ = old_method(numpy_Matrix)
         return np.linalg.matrix_rank(numpy_Matrix) 
 
 
@@ -333,7 +303,7 @@ if __name__ == "__main__":
             M.add_column([0,3],4,[1,1])          
             print(repr(M))
             M.convert()
-            numpy_dim_im = compare_numpy(M)
+            numpy_dim_im = compare_methods(M)
             dim_ker, dim_im = M.dim_ker_im()
             assert numpy_dim_im == dim_im
             assert (dim_ker, dim_im) == (3,2)
@@ -348,7 +318,7 @@ if __name__ == "__main__":
                 M.add_column([i], i, [1])      
             print(repr(M))
             M.convert()
-            numpy_dim_im = compare_numpy(M)
+            numpy_dim_im = compare_methods(M)
             dim_ker, dim_im = M.dim_ker_im()
             assert numpy_dim_im == dim_im
             assert dim_ker == 0
@@ -414,8 +384,9 @@ if __name__ == "__main__":
         test([3])
         # test([0,1,2,3,4,5])
         profiler.disable()
-        stats = pstats.Stats(profiler).sort_stats("tottime")
+        stats = pstats.Stats(profiler).sort_stats("cumtime")
         stats.print_stats(20)
+        # pdb.set_trace()
 
     except Exception:
         print(traceback.format_exc())

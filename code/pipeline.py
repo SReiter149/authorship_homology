@@ -116,8 +116,8 @@ if __name__ == "__main__":
 
     pipeline = Pipeline(name = 'Kate_Meyer', folder_location= '../data/people/', verbose=True, results=True, overwrite=True, save = True)
     pipeline.load_data()
-    pipeline.run_betti_analysis(max_bar_level=1)
-    for level in range(1):
+    pipeline.run_betti_analysis(max_bar_level=2)
+    for level in range(2):
         graph.main(data_location=f'../data/people/', save_location=f'../data/people/', name= f'Kate_Meyer{level}', special_nodes={'A5029009134'})
 
     
