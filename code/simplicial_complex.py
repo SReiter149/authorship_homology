@@ -9,7 +9,7 @@ from itertools import combinations
 import pdb
 import numpy as np 
 import linear_algebra as la
-import sparse_2 as sla
+import sparse_linear_algebra as sla
 
 import pickle as pkl
 import traceback
@@ -23,7 +23,7 @@ class SimplicialComplex:
 
     arguments:
     - top_cell_complex (a set of simplicies)
-    - data_location (path of data)
+    - directory_path (path of data)
     - name (string)
     - level (int)
     - verbose (bool)
@@ -32,7 +32,7 @@ class SimplicialComplex:
     
     '''
 
-    def __init__(self, top_cell_complex, data_location = '../data', name = 'abstract_complex', level = None, verbose = False, results = False, save = False):
+    def __init__(self, top_cell_complex, directory_path = '../data', name = 'abstract_complex', level = None, verbose = False, results = False, save = False):
         self.name = name
         self.verbose = verbose
         self.results = results
@@ -41,9 +41,9 @@ class SimplicialComplex:
         self.user_vertex_dict = dict()
         self.vertex_dict = dict()
 
-        self.save_name = f'{data_location}{self.name}'
+        self.save_path = f'{directory_path}{self.name}'
         if self.level != None:
-            self.save_name += str(level)
+            self.save_path += f'_level_{level}'
 
         self.top_cell_complex = dict()
         self.parse_user_top_cell(top_cell_complex)
@@ -324,7 +324,7 @@ class SimplicialComplex:
         returns:
         - None
         """
-        with open(f'{self.save_name}_top_cell_complex.pkl', 'wb') as f:
+        with open(f'{self.save_path}_top_cell_complex.pkl', 'wb') as f:
             pkl.dump(self.top_cell_complex, f)
 
     def save_reduced_complex(self):
@@ -337,7 +337,7 @@ class SimplicialComplex:
         returns:
         - None
         """
-        with open(f'{self.save_name}_reduced_complex.pkl', 'wb') as f:
+        with open(f'{self.save_path}_reduced_complex.pkl', 'wb') as f:
             pkl.dump(self.abstract_complex, f)
 
     def save_vertex_dict(self):
@@ -350,7 +350,7 @@ class SimplicialComplex:
         returns:
         - None
         """
-        with open(f'{self.save_name}_vertex_dict.pkl', 'wb') as f:
+        with open(f'{self.save_path}_vertex_dict.pkl', 'wb') as f:
             pkl.dump(self.vertex_dict, f)
 
     def save_simplex_maps(self):
@@ -364,7 +364,7 @@ class SimplicialComplex:
         - None
         """
 
-        with open(f'{self.save_name}_simplex_maps.pkl', 'wb') as f:
+        with open(f'{self.save_path}_simplex_maps.pkl', 'wb') as f:
             pkl.dump(self.simplex_maps, f)
 
     def save_betti_numbers(self):
@@ -377,13 +377,13 @@ class SimplicialComplex:
         returns:
         - None
         """
-        with open(f'{self.save_name}_betti_numbers.txt', 'w') as f:
+        with open(f'{self.save_path}_betti_numbers.txt', 'w') as f:
             f.write(str(self.betti_numbers))
             f.close()
 
     def write_betti_results(self):
         """
-        writes all the results from the whole betti number computation to the given location
+        writes all the results from the whole betti number computation to the given path
 
         arguments:
         - None
@@ -391,7 +391,7 @@ class SimplicialComplex:
         returns:
         - None
         """
-        with open(f'{self.save_name}_results.txt', 'a') as f:
+        with open(f'{self.save_path}_results.txt', 'a') as f:
             
             f.write(f'\nfor level {self.level}:\n')
             f.write(f'the maximum dimension before reduction was {self.max_dimension} \n')
@@ -812,8 +812,8 @@ class SimplicialComplex:
             if colab2 <= simplex:
                 check2 = True
 
-        assert check1, f"It appears {colab1} is not in the simplex"
-        assert check2, f"It appears {colab2} is not in the simplex"
+        if not check1 or not check2:
+            return -1
 
         distance_dict = {simplex_id: 0 for simplex_id in set.intersection(*[self.vertex_maps[vertex] for vertex in colab1])}
         queue = [key for key in distance_dict.keys()]
@@ -885,7 +885,7 @@ class SimplicialComplex:
         returns:
         - None
         """
-        with open(f'{self.save_name}_perseus.txt', 'w+') as f:
+        with open(f'{self.save_path}_perseus.txt', 'w+') as f:
             f.write(f'1 \n')
             for simplex in self.simplex_maps.values():
                 # dimension, elements, birthtimes
@@ -893,7 +893,7 @@ class SimplicialComplex:
                 line += ' '.join([str(x) for x in simplex])
                 line += f' {len(simplex)} \n'
                 f.write(line)
-        print(f'perseus location: {f"{self.save_name}_perseus.txt"}')
+        print(f'perseus path: {f"{self.save_path}_perseus.txt"}')
 
     # ----------RUN THIS----------
     def run_colab_distance(self,colab1, colab2, width = None):
@@ -971,8 +971,8 @@ if __name__ == '__main__':
     """
     def test(top_cell_complex, answer, name,sparse = True, colab1 = False, colab2 = False, width = 0, *args, **kwargs):
         try:
-            data_location='../data/simplex_tests/'
-            complex = SimplicialComplex(top_cell_complex, data_location = data_location, name = name, *args, **kwargs)
+            directory_path='../data/simplex_tests/'
+            complex = SimplicialComplex(top_cell_complex, directory_path = directory_path, name = name, *args, **kwargs)
 
             if bool(colab1) & bool(colab2):
                 distance = complex.run_colab_distance(colab1, colab2, width)
@@ -994,15 +994,15 @@ if __name__ == '__main__':
         # complex.build_perseus_simplex()
         # subprocess.run(["arch", "-x86_64", "./perseus",
         #     "nmfsimtop",
-        #     f"{data_location}/{name}_perseus.txt",
-        #     f"{data_location}/{name}_perseus"
+        #     f"{directory_path}/{name}_perseus.txt",
+        #     f"{directory_path}/{name}_perseus"
         #     ],
         #     stdout=subprocess.DEVNULL,
         #     stderr=subprocess.DEVNULL,
         #     check= True
         #     )
         
-        # with open(f"{data_location}/{name}_perseus_betti.txt", 'r') as f:
+        # with open(f"{directory_path}/{name}_perseus_betti.txt", 'r') as f:
         #     for line in f:
         #         perseus_betti = line
         #     perseus_betti = perseus_betti.split(" ")[2:-1]
@@ -1072,3 +1072,4 @@ if __name__ == '__main__':
         # distance test 2
         top_cell_complex = [[0,1,2],[1,2,3],[2,3,4],[3,4,5],[0,5]]
         test(top_cell_complex=top_cell_complex, answer = [1,1],colab1={0,1}, colab2 = {4,5},name = 'distance_test2', width = 2)
+    

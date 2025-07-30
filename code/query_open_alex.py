@@ -56,13 +56,13 @@ def format_papers(results):
         paper_dict[paper_name] = author_ids
     return paper_dict
 
-def write_results(paper_dictionary, folder_path, file_name, start = True, end = True, verbose = False):
+def write_results(paper_dictionary, directory_path, file_name, start = True, end = True, verbose = False):
     """
     writes the results to the file
 
     arguments:
     - paper_dictionary (dictionary): the dictionary to write to the file
-    - folder_path (path): path of the folder to save the files in 
+    - directory_path (path): path of the folder to save the files in 
     - file_name (str): the base name of the file to save in
     - start (bool): whether this is the first time writing in this file
     - end (bool): whether this is the last time writing in this file
@@ -71,12 +71,12 @@ def write_results(paper_dictionary, folder_path, file_name, start = True, end = 
     returns:
     - None
     """  
-    assert folder_path[-1] == "/"  
+    assert directory_path[-1] == "/"  
     if verbose:
-        print(f'writing results to {folder_path}')
+        print(f'writing results to {directory_path}')
 
-    os.makedirs(folder_path, exist_ok = True)
-    full_path = f'{folder_path}{file_name}'
+    os.makedirs(directory_path, exist_ok = True)
+    full_path = f'{directory_path}{file_name}'
     
     if start:
         f = open(full_path, 'w+')
@@ -96,13 +96,14 @@ def write_results(paper_dictionary, folder_path, file_name, start = True, end = 
         f.write('}')     
     f.close()
 
-def papers_by_author(seed_id = 'A5029009134', name = 'Kate_Meyer', folder_path = f"../data/people/", max_rounds = 2, verbose = False):
+def papers_by_author(seed_id = 'A5029009134', name = 'Kate_Meyer', directory_path = f"../data/query_tests/", max_rounds = 2, overwrite = True, verbose = False):
     '''
     starts with a seed ID and gets all papers and their co-authors, then all co-author's co-authors and so on for max_rounds times. 
     arguments:
     - seed_id (str): the openAlex ID for the seed author
     - name (str): name of the author to save files with
-    - folder_path (path): the path of the folder to sasve files in 
+    - directory_path (path): the path of the folder to sasve files in
+    - overwrite (bool): whether to write over a file if it has content 
     - verbose (bool): whether to print updates
 
     returns: 
@@ -118,32 +119,50 @@ def papers_by_author(seed_id = 'A5029009134', name = 'Kate_Meyer', folder_path =
         end = False
         this_round_authors = authors[-1].copy()
         next_round_authors = set()
-        while this_round_authors:
-            author_id = this_round_authors.pop()
-            if verbose:
-                print(f'getting results for {author_id}')
-            if not bool(this_round_authors):
-                end = True
-            for results in query(query_filter = f'author.id:{author_id}', verbose = verbose):
-                # pdb.set_trace()
-                paper_dictionary = format_papers(results)
-                write_results(paper_dictionary=paper_dictionary, folder_path=folder_path, file_name=file_name, start = start, end = end)
+        if overwrite == True or not os.path.isfile(f'{directory_path}{file_name}') or os.stat(f'{directory_path}{file_name}').st_size == 0:
+            while this_round_authors:
+                author_id = this_round_authors.pop()
+                if verbose:
+                    print(f'getting results for {author_id}')
+                if not bool(this_round_authors):
+                    end = True
+                
+                for results in query(query_filter = f'author.id:{author_id}', verbose = verbose):
 
-                write_results(paper_dictionary=paper_dictionary, folder_path=folder_path, file_name=file_name, start = round_number == 0, end = (round_number == max_rounds-1 and end))
+                    # writing the current round of papers into round file
+                    paper_dictionary = format_papers(results)
+                    write_results(paper_dictionary=paper_dictionary, directory_path=directory_path, file_name=file_name, start = start, end = end)
 
-                if round_number != max_rounds - 1:
-                    for author_ids in paper_dictionary.values():
-                        next_round_authors = next_round_authors.union(author_ids)
+                    if round_number != max_rounds - 1:
+                        for author_ids in paper_dictionary.values():
+                            next_round_authors = next_round_authors.union(author_ids)
+                
 
-                # pdb.set_trace()
-            start = False
-            for last_authors in authors:
-                next_round_authors -= last_authors 
+            # removing authors from previous rounds that have already been checked
+
+
+        else:
+            # if not writing and querying this round
+            f = open(f'{directory_path}{file_name}', 'r')
+            last_round_data = json.load(f)
+            next_round_authors = set()
+            for author_ids in last_round_data.values():
+                next_round_authors = next_round_authors.union(author_ids)
+
+
+        f = open(f'{directory_path}{file_name}', 'r')
+        last_round_data = json.load(f)
+        write_results(paper_dictionary=last_round_data, directory_path=directory_path, file_name=combined_name, start = start, end = round_number == max_rounds - 1)
+
+        next_round_authors = next_round_authors.union(author_ids)
+        for last_authors in authors:
+            next_round_authors -= last_authors 
         authors.append(next_round_authors)
+        start = False
 
 
 
-def papers_by_topic(query_filter = 'title.search:Choloepus', folder_path = f"../data/query_tests/", name = 'small_sloths',verbose = False):
+def papers_by_topic(query_filter = 'title.search:Choloepus', directory_path = f"../data/query_tests/", name = 'small_sloths', overwrite = True, verbose = False):
     """
     note:
     - the basic search is 'title.search:' and just checks to see if the following string is in the title of the papers
@@ -151,7 +170,8 @@ def papers_by_topic(query_filter = 'title.search:Choloepus', folder_path = f"../
     arguments:
     - query_filter (string): the filter by which to search the openAlex API with.
     - name (string): name of the base name to save by 
-    - folder_path (path): path to the folder to save in
+    - directory_path (path): path to the folder to save in
+    - overwrite (bool): whether to write over a file if it has content 
     - verbose (bool): whether to print occasional updates 
 
     returns:
@@ -159,9 +179,10 @@ def papers_by_topic(query_filter = 'title.search:Choloepus', folder_path = f"../
     """
     # build the dataset
     file_name = f'{name}.json'
-    for results in query(query_filter):
-        paper_dictionary = format_papers(results)
-        write_results(paper_dictionary=paper_dictionary, folder_path=folder_path, file_name=file_name,verbose=verbose)
+    if overwrite == True or not os.path.isfile(f'{directory_path}{file_name}') or os.stat(f'{directory_path}{file_name}').st_size == 0:
+        for results in query(query_filter):
+            paper_dictionary = format_papers(results)
+            write_results(paper_dictionary=paper_dictionary, directory_path=directory_path, file_name=file_name,verbose=verbose)
 
 
 if __name__ == '__main__':
@@ -169,8 +190,8 @@ if __name__ == '__main__':
     my random test functions
     """
     try:
-        papers_by_topic()
-        # papers_by_author(verbose = True)
+        papers_by_topic(overwrite = False)
+        papers_by_author(overwrite = False, verbose = True)
     except Exception:
         print(traceback.format_exc())
         pdb.post_mortem()
