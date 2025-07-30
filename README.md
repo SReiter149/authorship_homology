@@ -14,7 +14,7 @@ numpy
 matplotlib
 networkx
 ```
-
+then clone and cd into the project
 ```
 git clone https://github.com/SReiter149/authorship_homology.git
 cd authorship-homology
