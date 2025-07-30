@@ -1,22 +1,6 @@
-import pstats
-import random
-from sparse_linear_algebra import Matrix
-import cProfile
+frozenset({'A5013079663', 'A5009166574'})
+frozenset({'A5013079663', 'A5021995411', 'A5112199578'})
+frozenset({'A5059784438', 'A5071602601', 'A5013079663', 'A5023476305'})
+frozenset({'A5013079663', 'A5069088073'})
 
-def test_sparse_package():
-    # Build a 1000×1000 sparse matrix with 2000 random entries
-    M = Matrix()
-    for _ in range(5):
-        i = random.randrange(5)
-        j = random.randrange(5)
-        M.add_nonzero_value(i, j, 1)
-    M.convert()
-    M.dim_ker_im()
-
-if __name__ == "__main__":
-    profiler = cProfile.Profile()
-    profiler.enable()
-    test_sparse_package()
-    profiler.disable()
-    stats = pstats.Stats(profiler).sort_stats("tottime")
-    stats.print_stats(20)
+frozenset({'A5021995411', 'A5013791380'})

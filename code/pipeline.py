@@ -152,12 +152,13 @@ class Pipeline:
                 print(f'Now beginning distance analysis of level {level}') 
             width = 0
             distance = 0
-            complex = SimplicialComplex(top_cell_complex = dataset, directory_path = self.directory_path, name = f'{self.name}', verbose = self.verbose, results = self.results, save=self.save)
+            complex = SimplicialComplex(top_cell_complex = dataset, directory_path = self.directory_path, name = f'{self.name}', verbose = self.verbose, results = self.results, save=self.save, level=level)
             while width <= max_width and distance != -1:
                 distance = complex.run_colab_distance(colab1, colab2, width = width)
-                f.write(f"level: {level}, width: {width}, distance: {distance}")
+                if self.verbose:
+                    print(f"level: {level}, width: {width}, distance: {distance}")
+                f.write(f"level: {level}, width: {width}, distance: {distance}\n")
                 width += 1
-            return distance
 
     def raise_bar(self, max_bar_level):
         """
@@ -209,7 +210,9 @@ if __name__ == "__main__":
             pipeline = Pipeline(name = 'small_sloths', directory_path= '../data/sloths/', verbose=True, overwrite=True, save = True)
             papers_by_topic(query_filter='title.search:Choloepus')
             pipeline.load_data()
-            pipeline.run_distance_analysis({'A5103447570'}, {'A5070985763'}, max_bar_level=5, max_width=5)
+            for level, dataset in enumerate(pipeline.raise_bar(max_bar_level=5)):
+                pdb.set_trace()
+            pipeline.run_distance_analysis({'A5060893851'}, {'A5109268173'}, max_bar_level=5, max_width=5)
             pipeline.run_betti_analysis(max_bar_level=10)
 
 
