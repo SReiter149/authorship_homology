@@ -25,7 +25,7 @@ class Pipeline:
     - save (bool): whether to save results and data to files
     """
 
-    def __init__(self, directory_path = "../data/", name = "temp", overwrite = False, verbose = False, results = False, save = True):
+    def __init__(self, directory_path = "../data/", name = "temp", overwrite = True, verbose = False, results = False, save = True):
         assert directory_path[-1] == '/'
         os.makedirs(directory_path, exist_ok=True) 
 
@@ -159,6 +159,7 @@ class Pipeline:
                     print(f"level: {level}, width: {width}, distance: {distance}")
                 f.write(f"level: {level}, width: {width}, distance: {distance}\n")
                 width += 1
+            complex.save_complex()
 
     def raise_bar(self, max_bar_level):
         """

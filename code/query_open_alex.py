@@ -18,7 +18,7 @@ def query(query_filter, verbose = False):
     results = []
     page = 1
     total_pages = 100
-    while page <= total_pages:    
+    while page <= total_pages:  
         query_url = f'https://api.openalex.org/works?filter={query_filter}&select=display_name,authorships&per-page=200&cursor={cursor}'
         r = requests.get(url = query_url)
         data = r.json()
@@ -30,10 +30,10 @@ def query(query_filter, verbose = False):
             print(f'on page {page} of {total_pages}: there were {len(data["results"])} results')
         if page % 5 == 0:
 
-            yield results
+            yield results, False
             results = []     
         page += 1
-    yield results
+    yield results, True
 
 def format_papers(results):
     """
@@ -124,10 +124,11 @@ def papers_by_author(seed_id = 'A5029009134', name = 'Kate_Meyer', directory_pat
                 author_id = this_round_authors.pop()
                 if verbose:
                     print(f'getting results for {author_id}')
-                if not bool(this_round_authors):
-                    end = True
+
                 
-                for results in query(query_filter = f'author.id:{author_id}', verbose = verbose):
+                for results, last_flag in query(query_filter = f'author.id:{author_id}', verbose = verbose):
+                    if not bool(this_round_authors) and last_flag:
+                        end = True
 
                     # writing the current round of papers into round file
                     paper_dictionary = format_papers(results)
@@ -136,6 +137,7 @@ def papers_by_author(seed_id = 'A5029009134', name = 'Kate_Meyer', directory_pat
                     if round_number != max_rounds - 1:
                         for author_ids in paper_dictionary.values():
                             next_round_authors = next_round_authors.union(author_ids)
+                    start = False
                 
 
             # removing authors from previous rounds that have already been checked
@@ -152,7 +154,7 @@ def papers_by_author(seed_id = 'A5029009134', name = 'Kate_Meyer', directory_pat
 
         f = open(f'{directory_path}{file_name}', 'r')
         last_round_data = json.load(f)
-        write_results(paper_dictionary=last_round_data, directory_path=directory_path, file_name=combined_name, start = start, end = round_number == max_rounds - 1)
+        write_results(paper_dictionary=last_round_data, directory_path=directory_path, file_name=combined_name, start = round_number == 0, end = round_number == max_rounds - 1)
 
         next_round_authors = next_round_authors.union(author_ids)
         for last_authors in authors:
@@ -180,9 +182,11 @@ def papers_by_topic(query_filter = 'title.search:Choloepus', directory_path = f"
     # build the dataset
     file_name = f'{name}.json'
     if overwrite == True or not os.path.isfile(f'{directory_path}{file_name}') or os.stat(f'{directory_path}{file_name}').st_size == 0:
-        for results in query(query_filter):
+        start = True
+        for results, last_flag in query(query_filter):
             paper_dictionary = format_papers(results)
-            write_results(paper_dictionary=paper_dictionary, directory_path=directory_path, file_name=file_name,verbose=verbose)
+            write_results(paper_dictionary=paper_dictionary, directory_path=directory_path, file_name=file_name,verbose=verbose, start = start, end= last_flag)
+            start = False
 
 
 if __name__ == '__main__':
@@ -190,8 +194,8 @@ if __name__ == '__main__':
     my random test functions
     """
     try:
-        papers_by_topic(overwrite = False)
-        papers_by_author(overwrite = False, verbose = True)
+        # papers_by_topic(overwrite = True)
+        papers_by_author(overwrite = True, verbose = True)
     except Exception:
         print(traceback.format_exc())
         pdb.post_mortem()
