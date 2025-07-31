@@ -14,17 +14,24 @@ numpy
 matplotlib
 networkx
 ```
-
+then clone and cd into the project
 ```
 git clone https://github.com/SReiter149/authorship_homology.git
 cd authorship-homology
 ```
 
-## file names
+## output file names
 by convention I have the base name of the file be "name" or "name_level_x" if you are working with various level. These base names with different extensions based on what type of file it is. The important ones are:
 - _betti_results.txt are the betti numbers
 - _distance_results.txt are the distance results
 - _graph.png the pictures for the distance visualization
+- _results the summary statistics for the level
+
+
+### betti_results
+Contains information about the betti numbers. In the list of betti results, the first number is always H_0, if there are hole at dimension x, then there will be 0s after H_0 until the x-th element of the list, which will contain the quantity of holes. 
+
+### distance_results
 
 
 ## Quick Start

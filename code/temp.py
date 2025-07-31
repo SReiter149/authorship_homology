@@ -1,6 +1,9 @@
-frozenset({'A5013079663', 'A5009166574'})
-frozenset({'A5013079663', 'A5021995411', 'A5112199578'})
-frozenset({'A5059784438', 'A5071602601', 'A5013079663', 'A5023476305'})
-frozenset({'A5013079663', 'A5069088073'})
+import pickle as pkl 
+import pdb
+path = '../data/examples/example2_level_0_top_cell_complex.pkl'
 
-frozenset({'A5021995411', 'A5013791380'})
+with open(path, 'rb') as f:
+    x = pkl.load(f)
+
+print(x)
+pdb.set_trace()

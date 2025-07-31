@@ -324,9 +324,11 @@ class SimplicialComplex:
         returns:
         - None
         """
-        with open(f'{self.save_path}_top_cell_complex.pkl', 'wb') as f:
-            pkl.dump(self.top_cell_complex, f)
-
+        try:
+            with open(f'{self.save_path}_top_cell_complex.pkl', 'wb') as f:
+                pkl.dump(self.top_cell_complex, f)
+        except:
+            pass
     def save_reduced_complex(self):
         """
         saves the reduced complex 
@@ -337,8 +339,11 @@ class SimplicialComplex:
         returns:
         - None
         """
-        with open(f'{self.save_path}_reduced_complex.pkl', 'wb') as f:
-            pkl.dump(self.abstract_complex, f)
+        try:
+            with open(f'{self.save_path}_reduced_complex.pkl', 'wb') as f:
+                pkl.dump(self.abstract_complex, f)
+        except:
+            pass
 
     def save_vertex_dict(self):
         """
@@ -350,9 +355,11 @@ class SimplicialComplex:
         returns:
         - None
         """
-        with open(f'{self.save_path}_vertex_dict.pkl', 'wb') as f:
-            pkl.dump(self.vertex_dict, f)
-
+        try:
+            with open(f'{self.save_path}_vertex_dict.pkl', 'wb') as f:
+                pkl.dump(self.vertex_dict, f)
+        except:
+            pass
     def save_simplex_maps(self):
         """
         saves the simplex maps to a file
@@ -363,9 +370,11 @@ class SimplicialComplex:
         returns:
         - None
         """
-
-        with open(f'{self.save_path}_simplex_maps.pkl', 'wb') as f:
-            pkl.dump(self.simplex_maps, f)
+        try:
+            with open(f'{self.save_path}_simplex_maps.pkl', 'wb') as f:
+                pkl.dump(self.simplex_maps, f)
+        except:
+            pass
 
     def save_betti_numbers(self):
         """
@@ -377,11 +386,30 @@ class SimplicialComplex:
         returns:
         - None
         """
-        with open(f'{self.save_path}_betti_numbers.txt', 'w') as f:
-            f.write(str(self.betti_numbers))
-            f.close()
+        try:
+            with open(f'{self.save_path}_betti_numbers.txt', 'w') as f:
+                f.write(f'{self.betti_numbers}\n')
+                f.close()
+        except:
+            pass
 
-    def write_betti_results(self):
+    def save_complex(self):
+        """
+        saves the complex and all the stuff to external files. 
+        arguments:
+        - None
+
+        returns:
+        - None
+        """
+        self.save_top_complex()
+        self.save_reduced_complex()
+        self.save_vertex_dict()
+        self.save_simplex_maps()
+        self.save_betti_numbers()
+        self.save_betti_results()
+
+    def save_betti_results(self):
         """
         writes all the results from the whole betti number computation to the given path
 
@@ -391,13 +419,17 @@ class SimplicialComplex:
         returns:
         - None
         """
-        with open(f'{self.save_path}_results.txt', 'a') as f:
-            
-            f.write(f'\nfor level {self.level}:\n')
-            f.write(f'the maximum dimension before reduction was {self.max_dimension} \n')
-            f.write(f'there were {self.vertex_count} vertices\n')
-            f.write(f'there were {len(self.top_cell_complex)} elements in the top cell complex\n')
-            f.write(f'the betti numbers are {self.betti_numbers}\n')
+        try:
+            with open(f'{self.save_path}_results.txt', 'w') as f:
+                
+                f.write(f'\nfor level {self.level}:\n')
+                f.write(f'the maximum dimension before reduction was {self.max_dimension} \n')
+                f.write(f'there were {self.vertex_count} vertices\n')
+                f.write(f'there were {len(self.top_cell_complex)} simplices in the top cell complex\n')
+                f.write(f'the betti numbers are {self.betti_numbers}\n')
+        except:
+            pass
+        
     # ----------HELPER FUNCTION----------
 
     # -----FOR EDGE CONTRACTION-----
@@ -958,12 +990,9 @@ class SimplicialComplex:
             pdb.post_mortem()
 
         if self.save:
-            self.save_top_complex()
-            self.save_reduced_complex()
-            self.save_vertex_dict()
-            self.save_simplex_maps()
-            self.save_betti_numbers()
-            self.write_betti_results()
+            self.save_complex()
+
+
 
 if __name__ == '__main__':
     """
