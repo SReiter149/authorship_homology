@@ -329,6 +329,11 @@ class SimplicialComplex:
                 pkl.dump(self.top_cell_complex, f)
         except:
             pass
+        try:
+            with open(f'{self.save_path}_top_cell_complex.pkl', 'wb') as f:
+                pkl.dump(self.top_cell_complex, f)
+        except:
+            pass
     def save_reduced_complex(self):
         """
         saves the reduced complex 
@@ -339,6 +344,11 @@ class SimplicialComplex:
         returns:
         - None
         """
+        try:
+            with open(f'{self.save_path}_reduced_complex.pkl', 'wb') as f:
+                pkl.dump(self.abstract_complex, f)
+        except:
+            pass
         try:
             with open(f'{self.save_path}_reduced_complex.pkl', 'wb') as f:
                 pkl.dump(self.abstract_complex, f)
@@ -360,6 +370,11 @@ class SimplicialComplex:
                 pkl.dump(self.vertex_dict, f)
         except:
             pass
+        try:
+            with open(f'{self.save_path}_vertex_dict.pkl', 'wb') as f:
+                pkl.dump(self.vertex_dict, f)
+        except:
+            pass
     def save_simplex_maps(self):
         """
         saves the simplex maps to a file
@@ -370,6 +385,11 @@ class SimplicialComplex:
         returns:
         - None
         """
+        try:
+            with open(f'{self.save_path}_simplex_maps.pkl', 'wb') as f:
+                pkl.dump(self.simplex_maps, f)
+        except:
+            pass
         try:
             with open(f'{self.save_path}_simplex_maps.pkl', 'wb') as f:
                 pkl.dump(self.simplex_maps, f)
@@ -990,6 +1010,9 @@ class SimplicialComplex:
             pdb.post_mortem()
 
         if self.save:
+            self.save_complex()
+
+
             self.save_complex()
 
 

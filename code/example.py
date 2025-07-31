@@ -1,7 +1,11 @@
 from pipeline import Pipeline
 from query_open_alex import papers_by_author, papers_by_topic
 import graph
+import graph
 
+
+# ----- Example 1 -----
+# you already have your dataset
 
 # ----- Example 1 -----
 # you already have your dataset
@@ -27,9 +31,14 @@ example_pipeline.run_betti_analysis()
 # ----- Example 2 -----
 # you want to query openAlex for a topic
 
+# ----- Example 2 -----
+# you want to query openAlex for a topic
+
 name = 'example2'
 directory_path = '../data/examples/'
 query_filter = 'title.search:Choloepus'
+author1_id = 'A5009166574'
+author2_id = 'A5013791380'
 author1_id = 'A5009166574'
 author2_id = 'A5013791380'
 
@@ -46,6 +55,20 @@ for level in range(3):
 # runs the betti analysis and saves to files
 pipeline.run_betti_analysis(max_bar_level=3)
 
+# ----- Example 3 -----
+# you want to query openAlex for an author
+
+name = 'example3'
+directory_path = '../data/examples/'
+author_id = 'A5060197447'
+
+# query and load the data for the single author
+pipeline = Pipeline(name = name, directory_path= directory_path)
+papers_by_author(seed_id = author_id, name = name, directory_path=directory_path, max_rounds = 2)
+pipeline.load_data()
+
+# run betti analysis
+pipeline.run_betti_analysis(max_bar_level=2)
 # ----- Example 3 -----
 # you want to query openAlex for an author
 
