@@ -36,6 +36,7 @@ def build_graph(top_cell_complex, vertex_dict, special_nodes = set()):
             else:
                 graph.add_node(vertex_id, color = node_color, size = node_size, node_weight = node_weight)
         for edge in combinations(simplex, 2):
+            # perhaps you don't need to draw all the edges? just some?
             graph.add_edge(edge[0], edge[1], weight=edge_weight, edge_size = edge_size, color=edge_color)
     return graph
 
@@ -70,7 +71,7 @@ def draw_graph(graph, top_cell_complex, save_directory_path):
     ax.set_axis_off()
     plt.savefig(save_directory_path, dpi = 1000)
 
-def main(data_directory_path, save_directory_path, name, special_nodes = set()):
+def graph(data_directory_path, save_directory_path, name, special_nodes = set()):
     """
     arguments:
     - data_directory_path (path): path to the location of the simplicial complex is saved
@@ -96,10 +97,10 @@ def main(data_directory_path, save_directory_path, name, special_nodes = set()):
 
 if __name__ == '__main__':
     # testing on the 1st test
-    main(data_directory_path=f'../data/simplex_tests/', save_directory_path='../data/graph_tests/' ,name=f'test0')
+    graph(data_directory_path=f'../data/simplex_tests/', save_directory_path='../data/graph_tests/' ,name=f'test0')
 
     # testing on small_sloths0
-    main(data_directory_path=f'../data/sloths/',save_directory_path='../data/graph_tests/', name= f'small_sloths0')
+    graph(data_directory_path=f'../data/sloths/',save_directory_path='../data/graph_tests/', name= f'small_sloths0')
 
     # testing on Kate_Meyer0
-    main(data_directory_path=f'../data/people/',save_directory_path='../data/graph_tests/', name= f'Kate_Meyer_round0', special_nodes={'A5029009134'})
+    graph(data_directory_path=f'../data/people/',save_directory_path='../data/graph_tests/', name= f'Kate_Meyer_round0', special_nodes={'A5029009134'})

@@ -2,11 +2,38 @@ import json
 import pdb
 import sys
 import os
+import pickle as pkl
 
 from query_open_alex import *
 import graph
 from simplicial_complex import *
 
+
+def print_file(path):
+    """
+    will print hte contense of the file
+    - can parse .txt, .pkl, and .json files
+    arguments: 
+    - path (string): the path to the file to print
+    
+    returns:
+    - None
+    """
+    assert os.path.exists(path)
+
+    if path.endswith('.txt'):
+        with open(path, "r") as f:
+            for line in f.readlines():
+                print(line)
+
+    elif path.endswith('.pkl'):
+        with open(path, 'rb') as f:
+            content = pkl.load(f)
+            print(content)
+    elif path.endswith('.json'):
+        with open(path,'r') as f:
+            content = json.load(f)
+            print(content)
 
 
 class Pipeline:
@@ -171,8 +198,7 @@ class Pipeline:
         yields:
         - dataset (frozenset of frozensets): the top cell complex at the given level
         """
-        # a list of dictionaries,
-        # (set of colaborators : set of papers)
+        # perhaps change the function to yield as the bar is raised, rather than saving them all in memory at once.
         levels = [dict() for i in range(max_bar_level)]
         levels[0] = {colabs : {paper} for paper, colabs in self.dataset.items()}
         
@@ -200,9 +226,13 @@ class Pipeline:
 
 
 if __name__ == "__main__":
+    print_file('../data/examples/example1_betti_results.txt')
+    print_file('../data/examples/example1_level_0_simplex_maps.pkl')
+    print_file('../data/examples/example2.json')
+
 
     try:
-        tests = [0, 1, 2 ,3 ,4 ]
+        tests = []
 
 
         

@@ -29,10 +29,11 @@ def query(query_filter, verbose = False):
         if verbose:
             print(f'on page {page} of {total_pages}: there were {len(data["results"])} results')
         if page % 5 == 0:
-
             yield results, False
             results = []     
         page += 1
+        # openAlex wants a sleep but its slow, plus cleaning the data takes time so maybe that counts
+        # time.sleep(0.1)
     yield results, True
 
 def format_papers(results):
