@@ -1,4 +1,4 @@
-# authorship Homology
+# Authorship Homology
 
 ## About this project
 This is a project that is based on finding holes and distances amungst authorship data. Specifically I used tools from homology to find the betti numbers and simplicial distance in biological and mathematical authorship networks. 
