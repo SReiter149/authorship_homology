@@ -3,7 +3,7 @@
 ## About this project
 This is a project that is based on finding holes and distances amungst authorship data. Specifically I used tools from homology to find the betti numbers and simplicial distance in biological and mathematical authorship networks. 
 ### Data Source
-This project uses data from **OpenAlex**—a fully‑open index of scholarly works, authors, venues, institutions, and concepts.
+This project uses data from **OpenAlex**:
 Priem, J., Piwowar, H., & Orr, R. (2022). OpenAlex: A fully-open index of scholarly works, authors, venues, institutions, and concepts. ArXiv. https://arxiv.org/abs/2205.01833
 
 ## Getting started 
